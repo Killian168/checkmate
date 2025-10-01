@@ -1,2 +1,1 @@
-# checkmate
-Online Chess Implementation
+# Checkmate
