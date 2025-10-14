@@ -1,13 +1,10 @@
 {
   "name": "checkmate",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "scripts": {
-    "build": "cargo lambda build --output-format zip --x86-64 --release",
+    "build": "cargo lambda build --output-format zip --arm64 --release",
     "deploy": "npm run build && serverless deploy",
-    "deploy:local": "npm run build && serverless deploy --stage local",
+    "deploy:dev": "npm run build && serverless deploy --stage dev",
     "deploy:prod": "npm run build && serverless deploy --stage prod"
-  },
-  "devDependencies": {
-    "serverless-localstack": "^1.3.1"
   }
 }
