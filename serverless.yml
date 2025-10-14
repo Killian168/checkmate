@@ -6,9 +6,17 @@ provider:
   name: aws
   region: ${opt:region, 'eu-west-1'}
   memorySize: 128
-  timeout: 10
   architecture: arm64
   runtime: provided.al2023
+  httpApi:
+    cors: true
+  iam:
+    role:
+      statements: # ToDo: Tighten this up
+        - Effect: Allow
+          Action:
+            - "dynamodb:*"
+          Resource: "*"
 
 package:
   individually: true
@@ -19,7 +27,40 @@ functions:
     package:
       artifact: target/lambda/checkmate/bootstrap.zip
     events:
-      - http:
+      # ToDo: Use Api Gateway V2 if/when localstack free supports it
+      - httpApi:
           path: /health
           method: GET
-          cors: true
+      - httpApi:
+          path: /auth/user
+          method: ANY
+      - httpApi:
+          path: /auth/login
+          method: ANY
+    reservedConcurrency: 10
+    environment:
+      USERS_TABLE: !Ref UsersTable
+      JWT_SECRET: ThisIsMySecret
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${sls:stage}-users
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: GSI_UserByEmail
+            KeySchema:
+              - AttributeName: email
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL

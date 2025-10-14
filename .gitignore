@@ -4,6 +4,7 @@ target
 *.pdb
 **/mutants.out*/
 .idea/
+.zed/
 .serverless/
 volume/
 node_modules/
