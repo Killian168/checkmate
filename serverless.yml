@@ -45,6 +45,7 @@ functions:
     reservedConcurrency: 10
     environment:
       USERS_TABLE: !Ref UsersTable
+      MATCHMAKING_TABLE: !Ref MatchmakingTable
       JWT_SECRET: ThisIsMySecret
 
 resources:
@@ -69,3 +70,19 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+
+    MatchmakingTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${sls:stage}-matchmaking
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: queue_rating
+            AttributeType: S
+          - AttributeName: player_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: queue_rating
+            KeyType: HASH
+          - AttributeName: player_id
+            KeyType: RANGE

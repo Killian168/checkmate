@@ -10,7 +10,9 @@ pub mod repositories;
 mod routes;
 pub mod services;
 
+use crate::services::matchmaking_service::MatchmakingService;
 use crate::services::user_service::UserService;
+use repositories::matchmaking_repository::DynamoDbMatchmakingUserRepository;
 use repositories::user_repository::DynamoDbUserRepository;
 use services::auth_service::AuthService;
 
@@ -24,12 +26,18 @@ async fn main() -> Result<(), Error> {
     // Set up services
     let config = aws_config::load_from_env().await;
     let client = aws_sdk_dynamodb::Client::new(&config);
+
     let user_repository = Arc::new(DynamoDbUserRepository::new(client.clone()));
     let user_service = Arc::new(UserService::new(user_repository));
     let auth_service = Arc::new(AuthService::new(user_service.clone()));
+
+    let matchmaking_repository = Arc::new(DynamoDbMatchmakingUserRepository::new(client.clone()));
+    let matchmaking_service = Arc::new(MatchmakingService::new(matchmaking_repository));
+
     let app_state = models::AppState {
         user_service,
         auth_service,
+        matchmaking_service,
     };
 
     // Configure CORS

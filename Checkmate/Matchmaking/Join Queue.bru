@@ -1,0 +1,25 @@
+meta {
+  name: Join Queue
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/matchmaking/join
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "queue_type": "rapid"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

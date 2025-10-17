@@ -10,6 +10,7 @@ pub struct User {
     pub password: String,
     pub first_name: String,
     pub last_name: String,
+    pub rating: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -21,6 +22,7 @@ impl User {
             password,
             first_name,
             last_name,
+            rating: 1200, // Default starting rating for chess platform
             created_at: Utc::now(),
         }
     }
@@ -52,6 +54,7 @@ pub trait UserRepository: Send + Sync {
     async fn create_user(&self, user: &User) -> Result<(), UserRepositoryError>;
     async fn get_user_by_id(&self, user_id: &str) -> Result<User, UserRepositoryError>;
     async fn get_user_by_email(&self, email: &str) -> Result<User, UserRepositoryError>;
+    async fn update_user(&self, user: &User) -> Result<(), UserRepositoryError>;
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepositoryError>;
     async fn email_exists(&self, email: &str) -> Result<bool, UserRepositoryError>;
 }

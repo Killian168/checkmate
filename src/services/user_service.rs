@@ -91,4 +91,36 @@ impl UserService {
                 _ => UserServiceError::RepositoryError(e.to_string()),
             })
     }
+
+    pub async fn update_rating(
+        &self,
+        user_id: &str,
+        new_rating: i32,
+    ) -> Result<User, UserServiceError> {
+        if user_id.is_empty() {
+            return Err(UserServiceError::ValidationError(
+                "User ID cannot be empty".to_string(),
+            ));
+        }
+
+        if new_rating < 0 {
+            return Err(UserServiceError::ValidationError(
+                "Rating cannot be negative".to_string(),
+            ));
+        }
+
+        // Get the current user
+        let mut user = self.get_user_by_id(user_id).await?;
+
+        // Update the rating
+        user.rating = new_rating;
+
+        // Save the updated user to the database
+        self.repository
+            .update_user(&user)
+            .await
+            .map_err(|e| UserServiceError::RepositoryError(e.to_string()))?;
+
+        Ok(user)
+    }
 }

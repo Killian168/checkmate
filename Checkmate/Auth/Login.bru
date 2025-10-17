@@ -1,0 +1,77 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "test@example.com",
+    "password": "securePassword123"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.token: isString
+  res.body.token_type: eq Bearer
+  res.body.expires_in: isNumber
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const responseBody = res.getBody();
+    bru.setEnvVar("authToken", responseBody.token);
+  }
+}
+
+tests {
+  test("Login returns 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Login returns valid token structure", function() {
+    const body = res.getBody();
+    expect(body).to.have.property("token");
+    expect(body).to.have.property("token_type");
+    expect(body).to.have.property("expires_in");
+    expect(body.token_type).to.equal("Bearer");
+    expect(typeof body.token).to.equal("string");
+    expect(typeof body.expires_in).to.equal("number");
+  });
+  
+  test("Token is automatically saved to environment", function() {
+    if (res.getStatus() === 200) {
+      const token = bru.getEnvVar("authToken");
+      expect(token).to.not.be.empty;
+    }
+  });
+}
+
+docs {
+  Authenticates a user with email and password, returns a JWT token.
+  
+  **Request Body:**
+  - email: User's email address (required)
+  - password: User's password (required)
+  
+  **Response Body:**
+  - token: JWT token for authenticated requests
+  - token_type: Always "Bearer"
+  - expires_in: Token expiration time in seconds
+  
+  **Response Codes:**
+  - 200: Login successful
+  - 400: Validation error (missing/invalid email or password)
+  - 401: Invalid credentials
+  - 404: User not found
+  - 500: Internal server error
+  
+  **Note:** The token is automatically saved to the `authToken` environment variable for use in subsequent authenticated requests.
+}

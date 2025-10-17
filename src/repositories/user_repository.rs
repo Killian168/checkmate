@@ -92,6 +92,18 @@ impl UserRepository for DynamoDbUserRepository {
         }
     }
 
+    async fn update_user(&self, user: &User) -> Result<(), UserRepositoryError> {
+        let item = to_item(user).map_err(|e| UserRepositoryError::Serialization(e.to_string()))?;
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await
+            .map_err(|e| UserRepositoryError::DynamoDb(e.to_string()))?;
+        Ok(())
+    }
+
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepositoryError> {
         let result = self
             .client
