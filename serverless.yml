@@ -27,7 +27,6 @@ functions:
     package:
       artifact: target/lambda/checkmate/bootstrap.zip
     events:
-      # ToDo: Use Api Gateway V2 if/when localstack free supports it
       - httpApi:
           path: /health
           method: GET
@@ -36,7 +35,13 @@ functions:
           method: ANY
       - httpApi:
           path: /auth/login
-          method: ANY
+          method: POST
+      - httpApi:
+          path: /matchmaking/join
+          method: POST
+      - httpApi:
+          path: /matchmaking/leave
+          method: POST
     reservedConcurrency: 10
     environment:
       USERS_TABLE: !Ref UsersTable

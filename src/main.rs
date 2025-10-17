@@ -24,18 +24,16 @@ async fn main() -> Result<(), Error> {
     // Set up services
     let config = aws_config::load_from_env().await;
     let client = aws_sdk_dynamodb::Client::new(&config);
-
     let user_repository = Arc::new(DynamoDbUserRepository::new(client.clone()));
     let user_service = Arc::new(UserService::new(user_repository));
-
     let auth_service = Arc::new(AuthService::new(user_service.clone()));
-
     let app_state = models::AppState {
         user_service,
         auth_service,
     };
 
     // Configure CORS
+    // ToDo: Tighten this up
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -45,6 +43,7 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .route("/health", get(routes::health::health_check))
         .merge(routes::auth::routes())
+        .merge(routes::matchmaking::routes())
         .layer(cors)
         .with_state(app_state);
 
