@@ -1,25 +1,24 @@
-[package]
-name = "checkmate"
+[workspace]
+members = [
+    "packages/api",
+    "packages/stream-processor",
+    "packages/shared"
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["Killian O'Dalaigh <killian@example.com>"]
+license = "MIT"
 
-[dependencies]
-axum = "0.8.6"
+[workspace.dependencies]
 aws-config = { version = "1.8.2", features = ["behavior-version-latest"] }
 aws-sdk-dynamodb = "1.84.0"
-lambda_http = "0.17.0"
-tokio = "1.47.1"
-serde = "1.0.219"
+tokio = { version = "1.47.1", features = ["full"] }
+serde = { version = "1.0.219", features = ["derive"] }
 async-trait = "0.1.88"
-tower-http = { version = "0.6.2", features = ["cors"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
 serde_dynamo = { version = "4.2.14", features = ["aws-sdk-dynamodb+1"] }
-jsonwebtoken = "9.3.1"
-
-[dev-dependencies]
-tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
-reqwest = { version = "0.11.27", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-rand = "0.8"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"

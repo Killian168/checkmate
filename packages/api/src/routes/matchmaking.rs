@@ -1,10 +1,7 @@
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
-use crate::{
-    middleware::auth::AuthenticatedUser,
-    models::matchmaking::{requests::JoinQueueRequest, responses::ErrorResponse},
-    models::AppState,
-};
+use crate::{middleware::auth::AuthenticatedUser, state::AppState};
+use shared::models::matchmaking::{requests::JoinQueueRequest, responses::ErrorResponse};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

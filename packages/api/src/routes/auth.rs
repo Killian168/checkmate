@@ -6,11 +6,11 @@ use axum::{
 };
 use lambda_http::tracing::{debug, error, warn};
 
-use crate::models::auth::requests::{CreateUserRequest, LoginRequest};
-use crate::models::auth::responses::LoginResponse;
 use crate::services::errors::auth_service_errors::AuthServiceError;
 use crate::services::errors::user_service_errors::UserServiceError;
-use crate::{middleware::auth::AuthenticatedUser, models::AppState};
+use crate::{middleware::auth::AuthenticatedUser, state::AppState};
+use shared::models::auth::requests::{CreateUserRequest, LoginRequest};
+use shared::models::auth::responses::LoginResponse;
 
 // Error conversion implementations
 impl From<UserServiceError> for StatusCode {
@@ -120,7 +120,7 @@ async fn login(
 async fn get_user(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
-) -> Result<Json<crate::models::user::User>, StatusCode> {
+) -> Result<Json<shared::models::user::User>, StatusCode> {
     match state
         .user_service
         .get_user_by_id(&authenticated_user.user_id)

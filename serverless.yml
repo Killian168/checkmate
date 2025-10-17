@@ -16,6 +16,7 @@ provider:
         - Effect: Allow
           Action:
             - "dynamodb:*"
+            - "logs:*"
           Resource: "*"
 
 package:
@@ -23,9 +24,10 @@ package:
 
 functions:
   api:
-    handler: checkmateAPI
+    name: ${self:service}-${sls:stage}-api
+    handler: api
     package:
-      artifact: target/lambda/checkmate/bootstrap.zip
+      artifact: target/lambda/api/api.zip
     events:
       - httpApi:
           path: /health
@@ -47,6 +49,22 @@ functions:
       USERS_TABLE: !Ref UsersTable
       MATCHMAKING_TABLE: !Ref MatchmakingTable
       JWT_SECRET: ThisIsMySecret
+
+  stream-processor:
+    name: ${self:service}-${sls:stage}-stream-processor
+    handler: stream-processor
+    package:
+      artifact: target/lambda/stream-processor/stream-processor.zip
+    events:
+      - stream:
+          type: dynamodb
+          arn: !GetAtt MatchmakingTable.StreamArn
+          batchSize: 1
+          startingPosition: LATEST
+          filterPatterns:
+            - eventName: [INSERT]
+    environment:
+      MATCHMAKING_TABLE: !Ref MatchmakingTable
 
 resources:
   Resources:
@@ -76,6 +94,8 @@ resources:
       Properties:
         TableName: ${self:service}-${sls:stage}-matchmaking
         BillingMode: PAY_PER_REQUEST
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         AttributeDefinitions:
           - AttributeName: queue_rating
             AttributeType: S

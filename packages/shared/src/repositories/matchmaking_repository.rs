@@ -3,7 +3,7 @@ use crate::models::matchmaking::{
 };
 use async_trait::async_trait;
 use aws_sdk_dynamodb::Client;
-use serde_dynamo::aws_sdk_dynamodb_1::{from_item, to_item};
+use serde_dynamo::aws_sdk_dynamodb_1::to_item;
 
 pub struct DynamoDbMatchmakingUserRepository {
     pub client: Client,

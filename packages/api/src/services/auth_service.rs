@@ -3,10 +3,10 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use lambda_http::tracing::{debug, error, warn};
 use std::sync::Arc;
 
-use crate::models::auth::responses::{LoginResponse, TokenClaims};
 use crate::services::errors::auth_service_errors::AuthServiceError;
 use crate::services::errors::user_service_errors::UserServiceError;
 use crate::services::user_service::UserService;
+use shared::models::auth::responses::{LoginResponse, TokenClaims};
 
 pub struct AuthService {
     user_service: Arc<UserService>,

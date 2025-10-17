@@ -2,9 +2,15 @@
   "name": "checkmate",
   "version": "0.1.0",
   "scripts": {
-    "build": "cargo lambda build --output-format zip --arm64 --release",
+    "build:api": "cargo lambda build --package api --output-format zip --arm64 --release && mv target/lambda/api/bootstrap.zip target/lambda/api/api.zip",
+    "build:stream-processor": "cargo lambda build --package stream-processor --output-format zip --arm64 --release && mv target/lambda/stream-processor/bootstrap.zip target/lambda/stream-processor/stream-processor.zip",
+    "build": "npm run build:api && npm run build:stream-processor",
     "deploy": "npm run build && serverless deploy",
     "deploy:dev": "npm run build && serverless deploy --stage dev",
-    "deploy:prod": "npm run build && serverless deploy --stage prod"
+    "deploy:prod": "npm run build && serverless deploy --stage prod",
+    "clean": "cargo clean && rm -rf target"
+  },
+  "devDependencies": {
+    "serverless": "^4.0.0"
   }
 }

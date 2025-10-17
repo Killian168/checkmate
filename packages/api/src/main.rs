@@ -5,16 +5,15 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
 pub mod middleware;
-pub mod models;
-pub mod repositories;
-mod routes;
+pub mod routes;
 pub mod services;
+pub mod state;
 
-use crate::services::matchmaking_service::MatchmakingService;
-use crate::services::user_service::UserService;
-use repositories::matchmaking_repository::DynamoDbMatchmakingUserRepository;
-use repositories::user_repository::DynamoDbUserRepository;
 use services::auth_service::AuthService;
+use services::matchmaking_service::MatchmakingService;
+use services::user_service::UserService;
+use shared::repositories::matchmaking_repository::DynamoDbMatchmakingUserRepository;
+use shared::repositories::user_repository::DynamoDbUserRepository;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -34,7 +33,7 @@ async fn main() -> Result<(), Error> {
     let matchmaking_repository = Arc::new(DynamoDbMatchmakingUserRepository::new(client.clone()));
     let matchmaking_service = Arc::new(MatchmakingService::new(matchmaking_repository));
 
-    let app_state = models::AppState {
+    let app_state = state::AppState {
         user_service,
         auth_service,
         matchmaking_service,

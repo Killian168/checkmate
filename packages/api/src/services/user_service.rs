@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::models::user::{User, UserRepository, UserRepositoryError};
 use crate::services::errors::user_service_errors::UserServiceError;
+use shared::models::user::{User, UserRepository, UserRepositoryError};
 
 pub struct UserService {
     repository: Arc<dyn UserRepository + Send + Sync>,

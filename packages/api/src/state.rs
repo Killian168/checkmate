@@ -4,10 +4,8 @@ use crate::services::auth_service::AuthService;
 use crate::services::matchmaking_service::MatchmakingService;
 use crate::services::user_service::UserService;
 
-pub mod auth;
-pub mod matchmaking;
-pub mod user;
-
+/// Application state specific to the API package
+/// This contains the actual service instances with their concrete types
 #[derive(Clone)]
 pub struct AppState {
     pub auth_service: Arc<AuthService>,

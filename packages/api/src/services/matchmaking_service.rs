@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use crate::models::matchmaking::{MatchmakingUser, MatchmakingUserRepository};
-use crate::models::user::User;
 use crate::services::errors::matchmaking_service_errors::MatchmakingServiceError;
+use shared::models::matchmaking::{MatchmakingUser, MatchmakingUserRepository};
+use shared::models::user::User;
 
 pub struct MatchmakingService {
     repository: Arc<dyn MatchmakingUserRepository + Send + Sync>,
