@@ -1711,6 +1711,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
+name = "matchmaking-processor"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws_lambda_events 0.14.0",
+ "chrono",
+ "lambda_runtime",
+ "rand",
+ "serde",
+ "serde_dynamo",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2618,21 +2639,6 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
-
-[[package]]
-name = "stream-processor"
-version = "0.1.0"
-dependencies = [
- "aws-sdk-dynamodb",
- "aws_lambda_events 0.14.0",
- "lambda_runtime",
- "serde_dynamo",
- "serde_json",
- "shared",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "strsim"

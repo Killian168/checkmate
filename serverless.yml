@@ -50,11 +50,11 @@ functions:
       MATCHMAKING_TABLE: !Ref MatchmakingTable
       JWT_SECRET: ThisIsMySecret
 
-  stream-processor:
-    name: ${self:service}-${sls:stage}-stream-processor
-    handler: stream-processor
+  matchmaking-processor:
+    name: ${self:service}-${sls:stage}-matchmaking-processor
+    handler: matchmaking-processor
     package:
-      artifact: target/lambda/stream-processor/stream-processor.zip
+      artifact: target/lambda/matchmaking-processor/matchmaking-processor.zip
     events:
       - stream:
           type: dynamodb

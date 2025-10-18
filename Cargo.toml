@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "packages/api",
-    "packages/stream-processor",
+    "packages/matchmaking-processor",
     "packages/shared"
 ]
 
