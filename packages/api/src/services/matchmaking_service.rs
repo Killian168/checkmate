@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use crate::services::errors::matchmaking_service_errors::MatchmakingServiceError;
-use shared::models::matchmaking::{MatchmakingUser, MatchmakingUserRepository};
+use shared::models::matchmaking::{MatchmakingUser, QueueRepository};
 use shared::models::user::User;
 
 pub struct MatchmakingService {
-    repository: Arc<dyn MatchmakingUserRepository + Send + Sync>,
+    repository: Arc<dyn QueueRepository + Send + Sync>,
 }
 
 impl MatchmakingService {
-    pub fn new(repository: Arc<dyn MatchmakingUserRepository + Send + Sync>) -> Self {
+    pub fn new(repository: Arc<dyn QueueRepository + Send + Sync>) -> Self {
         MatchmakingService { repository }
     }
 

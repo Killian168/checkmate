@@ -12,7 +12,7 @@ pub mod state;
 use services::auth_service::AuthService;
 use services::matchmaking_service::MatchmakingService;
 use services::user_service::UserService;
-use shared::repositories::matchmaking_repository::DynamoDbMatchmakingUserRepository;
+use shared::repositories::queue_repository::DynamoDbQueueRepository;
 use shared::repositories::user_repository::DynamoDbUserRepository;
 
 #[tokio::main]
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Error> {
     let user_service = Arc::new(UserService::new(user_repository));
     let auth_service = Arc::new(AuthService::new(user_service.clone()));
 
-    let matchmaking_repository = Arc::new(DynamoDbMatchmakingUserRepository::new(client.clone()));
+    let matchmaking_repository = Arc::new(DynamoDbQueueRepository::new(client.clone()));
     let matchmaking_service = Arc::new(MatchmakingService::new(matchmaking_repository));
 
     let app_state = state::AppState {
