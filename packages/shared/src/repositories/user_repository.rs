@@ -1,7 +1,8 @@
-use crate::models::user::{User, UserRepository, UserRepositoryError};
+use crate::models::user::User;
+use crate::repositories::errors::user_repository_errors::UserRepositoryError;
 use async_trait::async_trait;
 use aws_sdk_dynamodb::Client;
-use serde_dynamo::aws_sdk_dynamodb_1::{from_item, to_attribute_value, to_item};
+use serde_dynamo::{from_item, to_attribute_value, to_item};
 
 pub struct DynamoDbUserRepository {
     pub client: Client,
@@ -14,6 +15,16 @@ impl DynamoDbUserRepository {
             std::env::var("USERS_TABLE").expect(&"USERS_TABLE environment variable must be set");
         Self { client, table_name }
     }
+}
+
+#[async_trait]
+pub trait UserRepository: Send + Sync {
+    async fn create_user(&self, user: &User) -> Result<(), UserRepositoryError>;
+    async fn get_user_by_id(&self, user_id: &str) -> Result<User, UserRepositoryError>;
+    async fn get_user_by_email(&self, email: &str) -> Result<User, UserRepositoryError>;
+    async fn update_user(&self, user: &User) -> Result<(), UserRepositoryError>;
+    async fn delete_user(&self, user_id: &str) -> Result<(), UserRepositoryError>;
+    async fn email_exists(&self, email: &str) -> Result<bool, UserRepositoryError>;
 }
 
 #[async_trait]

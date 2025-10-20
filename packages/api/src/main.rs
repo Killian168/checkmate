@@ -6,14 +6,13 @@ use tower_http::cors::{Any, CorsLayer};
 
 pub mod middleware;
 pub mod routes;
-pub mod services;
 pub mod state;
 
-use services::auth_service::AuthService;
-use services::matchmaking_service::MatchmakingService;
-use services::user_service::UserService;
 use shared::repositories::queue_repository::DynamoDbQueueRepository;
 use shared::repositories::user_repository::DynamoDbUserRepository;
+use shared::services::auth_service::AuthService;
+use shared::services::queue_service::QueueService;
+use shared::services::user_service::UserService;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -30,13 +29,13 @@ async fn main() -> Result<(), Error> {
     let user_service = Arc::new(UserService::new(user_repository));
     let auth_service = Arc::new(AuthService::new(user_service.clone()));
 
-    let matchmaking_repository = Arc::new(DynamoDbQueueRepository::new(client.clone()));
-    let matchmaking_service = Arc::new(MatchmakingService::new(matchmaking_repository));
+    let queue_repository = Arc::new(DynamoDbQueueRepository::new(client.clone()));
+    let queue_service = Arc::new(QueueService::new(queue_repository));
 
     let app_state = state::AppState {
         user_service,
         auth_service,
-        matchmaking_service,
+        queue_service,
     };
 
     // Configure CORS
@@ -50,7 +49,7 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .route("/health", get(routes::health::health_check))
         .merge(routes::auth::routes())
-        .merge(routes::matchmaking::routes())
+        .merge(routes::queue::routes())
         .layer(cors)
         .with_state(app_state);
 

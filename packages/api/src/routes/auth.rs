@@ -6,66 +6,11 @@ use axum::{
 };
 use lambda_http::tracing::{debug, error, warn};
 
-use crate::services::errors::auth_service_errors::AuthServiceError;
-use crate::services::errors::user_service_errors::UserServiceError;
 use crate::{middleware::auth::AuthenticatedUser, state::AppState};
 use shared::models::auth::requests::{CreateUserRequest, LoginRequest};
 use shared::models::auth::responses::LoginResponse;
-
-// Error conversion implementations
-impl From<UserServiceError> for StatusCode {
-    fn from(error: UserServiceError) -> Self {
-        match error {
-            UserServiceError::UserAlreadyExists => {
-                warn!("User already exists");
-                StatusCode::CONFLICT
-            }
-            UserServiceError::UserNotFound => {
-                warn!("User not found");
-                StatusCode::NOT_FOUND
-            }
-            UserServiceError::ValidationError(msg) => {
-                warn!("Validation error: {}", msg);
-                StatusCode::BAD_REQUEST
-            }
-            UserServiceError::RepositoryError(error_details) => {
-                error!("DynamoDB error: {}", error_details);
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-            UserServiceError::SerializationError(error_details) => {
-                error!("Serialization error: {}", error_details);
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-        }
-    }
-}
-
-impl From<AuthServiceError> for StatusCode {
-    fn from(error: AuthServiceError) -> Self {
-        match error {
-            AuthServiceError::InvalidCredentials => {
-                warn!("Invalid credentials");
-                StatusCode::UNAUTHORIZED
-            }
-            AuthServiceError::ValidationError(msg) => {
-                warn!("Validation error: {}", msg);
-                StatusCode::BAD_REQUEST
-            }
-            AuthServiceError::UserServiceError(user_service_error) => {
-                error!("User service error: {}", user_service_error);
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-            AuthServiceError::JwtError(error_details) => {
-                error!("JWT error: {}", error_details);
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-            AuthServiceError::InvalidToken | AuthServiceError::ExpiredToken => {
-                error!("Token error");
-                StatusCode::INTERNAL_SERVER_ERROR
-            }
-        }
-    }
-}
+use shared::services::errors::auth_service_errors::AuthServiceError;
+use shared::services::errors::user_service_errors::UserServiceError;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -95,7 +40,28 @@ async fn create_user(
         }
         Err(e) => {
             error!("Failed to create user {}: {}", user_data.email, e);
-            Err(e.into())
+            Err(match e {
+                UserServiceError::UserAlreadyExists => {
+                    warn!("User already exists");
+                    StatusCode::CONFLICT
+                }
+                UserServiceError::UserNotFound => {
+                    warn!("User not found");
+                    StatusCode::NOT_FOUND
+                }
+                UserServiceError::ValidationError(msg) => {
+                    warn!("Validation error: {}", msg);
+                    StatusCode::BAD_REQUEST
+                }
+                UserServiceError::RepositoryError(error_details) => {
+                    error!("DynamoDB error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                UserServiceError::SerializationError(error_details) => {
+                    error!("Serialization error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            })
         }
     }
 }
@@ -112,7 +78,28 @@ async fn login(
         Ok(login_response) => Ok(Json(login_response)),
         Err(e) => {
             error!("Failed to authenticate user {}: {}", login_data.email, e);
-            Err(e.into())
+            Err(match e {
+                AuthServiceError::InvalidCredentials => {
+                    warn!("Invalid credentials");
+                    StatusCode::UNAUTHORIZED
+                }
+                AuthServiceError::ValidationError(msg) => {
+                    warn!("Validation error: {}", msg);
+                    StatusCode::BAD_REQUEST
+                }
+                AuthServiceError::UserServiceError(user_service_error) => {
+                    error!("User service error: {}", user_service_error);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                AuthServiceError::JwtError(error_details) => {
+                    error!("JWT error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                AuthServiceError::InvalidToken | AuthServiceError::ExpiredToken => {
+                    error!("Token error");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            })
         }
     }
 }
@@ -138,7 +125,28 @@ async fn get_user(
                 "Failed to retrieve user {}: {}",
                 authenticated_user.user_id, e
             );
-            Err(e.into())
+            Err(match e {
+                UserServiceError::UserNotFound => {
+                    warn!("User not found");
+                    StatusCode::NOT_FOUND
+                }
+                UserServiceError::ValidationError(msg) => {
+                    warn!("Validation error: {}", msg);
+                    StatusCode::BAD_REQUEST
+                }
+                UserServiceError::UserAlreadyExists => {
+                    warn!("User already exists");
+                    StatusCode::CONFLICT
+                }
+                UserServiceError::RepositoryError(error_details) => {
+                    error!("DynamoDB error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                UserServiceError::SerializationError(error_details) => {
+                    error!("Serialization error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            })
         }
     }
 }
@@ -161,7 +169,28 @@ async fn delete_user(
                 "Failed to delete user {}: {}",
                 authenticated_user.user_id, e
             );
-            Err(e.into())
+            Err(match e {
+                UserServiceError::UserNotFound => {
+                    warn!("User not found");
+                    StatusCode::NOT_FOUND
+                }
+                UserServiceError::ValidationError(msg) => {
+                    warn!("Validation error: {}", msg);
+                    StatusCode::BAD_REQUEST
+                }
+                UserServiceError::UserAlreadyExists => {
+                    warn!("User already exists");
+                    StatusCode::CONFLICT
+                }
+                UserServiceError::RepositoryError(error_details) => {
+                    error!("DynamoDB error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                UserServiceError::SerializationError(error_details) => {
+                    error!("Serialization error: {}", error_details);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            })
         }
     }
 }

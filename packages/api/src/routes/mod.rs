@@ -1,3 +1,3 @@
 pub mod auth;
 pub mod health;
-pub mod matchmaking;
+pub mod queue;

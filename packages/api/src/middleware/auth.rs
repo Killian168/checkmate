@@ -4,7 +4,8 @@ use axum::{
 };
 use lambda_http::tracing::warn;
 
-use crate::{services::errors::auth_service_errors::AuthServiceError, state::AppState};
+use crate::state::AppState;
+use shared::services::errors::auth_service_errors::AuthServiceError;
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {

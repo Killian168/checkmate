@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "scripts": {
     "build:api": "cargo lambda build --package api --output-format zip --arm64 --release && mv target/lambda/api/bootstrap.zip target/lambda/api/api.zip",
-    "build:stream-processor": "cargo lambda build --package stream-processor --output-format zip --arm64 --release && mv target/lambda/stream-processor/bootstrap.zip target/lambda/stream-processor/stream-processor.zip",
-    "build": "npm run build:api && npm run build:stream-processor",
+    "build:queue-processor": "cargo lambda build --package queue-processor --output-format zip --arm64 --release && mv target/lambda/queue-processor/bootstrap.zip target/lambda/queue-processor/queue-processor.zip",
+    "build:game-session-notifier": "cargo lambda build --package game-session-notifier --output-format zip --arm64 --release && mv target/lambda/game-session-notifier/bootstrap.zip target/lambda/game-session-notifier/game-session-notifier.zip",
+    "build": "npm run build:api && npm run build:queue-processor && npm run build:game-session-notifier",
     "deploy": "npm run build && serverless deploy",
     "deploy:dev": "npm run build && serverless deploy --stage dev",
     "deploy:prod": "npm run build && serverless deploy --stage prod",
