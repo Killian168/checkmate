@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
+aws-sdk-apigatewaymanagement = { workspace = true }
 serde = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
@@ -14,3 +15,12 @@ serde_dynamo = { workspace = true }
 tracing = { workspace = true }
 rand = { workspace = true }
 jsonwebtoken = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1.47.1", features = ["full", "rt-multi-thread", "macros"] }
+serde_json = "1.0"
+mockall = "0.12.1"
+proptest = "1.4.0"
+test-case = "3.3.1"
+rstest = "0.19.0"
+anyhow = "1.0.86"

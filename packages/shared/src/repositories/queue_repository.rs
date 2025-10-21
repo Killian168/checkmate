@@ -13,8 +13,8 @@ pub struct DynamoDbQueueRepository {
 
 impl DynamoDbQueueRepository {
     pub fn new(client: Client) -> Self {
-        let table_name = std::env::var("MATCHMAKING_TABLE")
-            .expect("MATCHMAKING_TABLE environment variable must be set");
+        let table_name =
+            std::env::var("QUEUE_TABLE").expect("QUEUE_TABLE environment variable must be set");
         Self { client, table_name }
     }
 }

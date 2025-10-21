@@ -5,13 +5,24 @@
     "build:api": "cargo lambda build --package api --output-format zip --arm64 --release && mv target/lambda/api/bootstrap.zip target/lambda/api/api.zip",
     "build:queue-processor": "cargo lambda build --package queue-processor --output-format zip --arm64 --release && mv target/lambda/queue-processor/bootstrap.zip target/lambda/queue-processor/queue-processor.zip",
     "build:game-session-notifier": "cargo lambda build --package game-session-notifier --output-format zip --arm64 --release && mv target/lambda/game-session-notifier/bootstrap.zip target/lambda/game-session-notifier/game-session-notifier.zip",
-    "build": "npm run build:api && npm run build:queue-processor && npm run build:game-session-notifier",
+    "build:websocket-api": "cargo lambda build --package websocket-api --output-format zip --arm64 --release && mv target/lambda/websocket-api/bootstrap.zip target/lambda/websocket-api/websocket-api.zip",
+    "build": "npm run build:api && npm run build:queue-processor && npm run build:game-session-notifier && npm run build:websocket-api",
     "deploy": "npm run build && serverless deploy",
     "deploy:dev": "npm run build && serverless deploy --stage dev",
     "deploy:prod": "npm run build && serverless deploy --stage prod",
-    "clean": "cargo clean && rm -rf target"
+    "clean": "cargo clean && rm -rf target",
+    "test": "cargo run --bin test-runner -- all",
+    "test:unit": "cargo run --bin test-runner -- unit",
+    "test:integration": "cargo run --bin test-runner -- integration",
+    "test:e2e": "cargo run --bin test-runner -- e2e",
+    "test:bench": "cargo run --bin test-runner -- bench",
+    "test:coverage": "cargo run --bin test-runner -- coverage",
+    "test:ci": "cargo run --bin test-runner -- all --ci --coverage",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:deploy-dev": "npm run deploy:dev && npm run test:e2e"
   },
   "devDependencies": {
-    "serverless": "^4.0.0"
+    "serverless": "^4.0.0",
+    "serverless-websockets-plugin": "^1.0.0"
   }
 }

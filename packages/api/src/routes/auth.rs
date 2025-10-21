@@ -9,6 +9,7 @@ use lambda_http::tracing::{debug, error, warn};
 use crate::{middleware::auth::AuthenticatedUser, state::AppState};
 use shared::models::auth::requests::{CreateUserRequest, LoginRequest};
 use shared::models::auth::responses::LoginResponse;
+use shared::services::auth_service::AuthServiceTrait;
 use shared::services::errors::auth_service_errors::AuthServiceError;
 use shared::services::errors::user_service_errors::UserServiceError;
 

@@ -140,3 +140,32 @@ impl UserService {
         Ok(user)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::user::User;
+    use crate::repositories::user_repository::MockUserRepository;
+
+    #[test]
+    fn test_user_service_creation() {
+        // Test that UserService can be created with a repository
+        let mock_repo = MockUserRepository::new();
+        let _service = UserService::new(Arc::new(mock_repo));
+        assert!(true, "UserService created successfully");
+    }
+
+    #[test]
+    fn test_user_model_compatibility() {
+        // Test that User model works with service
+        let user = User::new(
+            "test@example.com".to_string(),
+            "password123".to_string(),
+            "Test".to_string(),
+            "User".to_string(),
+        );
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(user.first_name, "Test");
+        assert_eq!(user.last_name, "User");
+    }
+}

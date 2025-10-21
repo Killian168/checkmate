@@ -5,6 +5,7 @@ use axum::{
 use lambda_http::tracing::warn;
 
 use crate::state::AppState;
+use shared::services::auth_service::AuthServiceTrait;
 use shared::services::errors::auth_service_errors::AuthServiceError;
 
 #[derive(Debug, Clone)]
