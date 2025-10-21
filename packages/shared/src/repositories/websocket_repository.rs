@@ -51,25 +51,6 @@ impl DynamoDbWebSocketRepository {
             table_name,
         }
     }
-
-    fn get_api_gateway_endpoint(&self) -> String {
-        // For WebSocket API Gateway, we need to construct the endpoint URL
-        // Format: https://{api-id}.execute-api.{region}.amazonaws.com/{stage}
-        // We'll get this from environment variables or use a default
-        if let Ok(endpoint) = env::var("WEBSOCKET_API_ENDPOINT") {
-            endpoint
-        } else {
-            // Fallback: construct from other environment variables
-            let region = env::var("AWS_REGION").unwrap_or_else(|_| "eu-west-1".to_string());
-            let api_id = env::var("WEBSOCKET_API_ID").unwrap_or_else(|_| "yphq15v1gk".to_string());
-            let stage = env::var("STAGE").unwrap_or_else(|_| "dev".to_string());
-
-            format!(
-                "https://{}.execute-api.{}.amazonaws.com/{}",
-                api_id, region, stage
-            )
-        }
-    }
 }
 
 #[async_trait]
@@ -189,15 +170,7 @@ impl WebSocketRepository for DynamoDbWebSocketRepository {
         connection_id: &str,
         message: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Create a new API Gateway client with the correct endpoint
-        let config = aws_config::load_from_env().await;
-        let api_gateway_config = aws_sdk_apigatewaymanagement::config::Builder::from(&config)
-            .endpoint_url(self.get_api_gateway_endpoint())
-            .build();
-        let api_gateway_client =
-            aws_sdk_apigatewaymanagement::Client::from_conf(api_gateway_config);
-
-        api_gateway_client
+        self.api_gateway_client
             .post_to_connection()
             .connection_id(connection_id)
             .data(Blob::new(message.as_bytes()))
