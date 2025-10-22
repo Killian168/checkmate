@@ -1,5 +1,5 @@
+use aws_lambda_events::apigw::ApiGatewayWebsocketProxyRequest;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::env::set_var;
 use std::sync::Arc;
@@ -9,37 +9,6 @@ pub mod state;
 
 use shared::repositories::websocket_repository::DynamoDbWebSocketRepository;
 use shared::services::websocket_service::WebSocketService;
-
-#[derive(Debug, Deserialize)]
-pub struct WebSocketEvent {
-    #[serde(rename = "requestContext")]
-    pub request_context: RequestContext,
-    pub body: Option<String>,
-    #[serde(rename = "queryStringParameters")]
-    pub query_string_parameters: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RequestContext {
-    #[serde(rename = "connectionId")]
-    pub connection_id: String,
-    #[serde(rename = "routeKey")]
-    pub route_key: String,
-    #[serde(rename = "eventType")]
-    pub event_type: String,
-    #[serde(rename = "domainName")]
-    pub domain_name: String,
-    pub stage: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct WebSocketResponse {
-    #[serde(rename = "statusCode")]
-    pub status_code: u16,
-    pub body: Option<String>,
-    #[serde(rename = "headers", skip_serializing_if = "Option::is_none")]
-    pub headers: Option<serde_json::Value>,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -63,31 +32,41 @@ async fn main() -> Result<(), Error> {
 
     let app_state = state::AppState { websocket_service };
 
-    run(service_fn(|event: LambdaEvent<WebSocketEvent>| {
-        websocket_handler(event, app_state.clone())
-    }))
+    run(service_fn(
+        |event: LambdaEvent<ApiGatewayWebsocketProxyRequest>| {
+            websocket_handler(event, app_state.clone())
+        },
+    ))
     .await
 }
 
 async fn websocket_handler(
-    event: LambdaEvent<WebSocketEvent>,
+    event: LambdaEvent<ApiGatewayWebsocketProxyRequest>,
     state: state::AppState,
-) -> Result<WebSocketResponse, Error> {
+) -> Result<Value, Error> {
     debug!("Received WebSocket event: {:?}", event);
 
     let websocket_event = event.payload;
-    let route_key = &websocket_event.request_context.route_key;
-    let connection_id = &websocket_event.request_context.connection_id;
+    let route_key = websocket_event
+        .request_context
+        .route_key
+        .as_deref()
+        .unwrap_or("");
+    let connection_id = websocket_event
+        .request_context
+        .connection_id
+        .as_deref()
+        .unwrap_or("");
 
     debug!(
         "Processing route_key: {}, connection_id: {}",
         route_key, connection_id
     );
 
-    match route_key.as_str() {
+    match route_key {
         "$connect" => {
             debug!("Handling $connect route");
-            handle_connect(connection_id, &websocket_event, state).await
+            handle_connect(&websocket_event, state).await
         }
         "$disconnect" => {
             debug!("Handling $disconnect route");
@@ -99,34 +78,28 @@ async fn websocket_handler(
         }
         _ => {
             error!("Unknown route key: {}", route_key);
-            Ok(WebSocketResponse {
-                status_code: 400,
-                body: Some(json!({"error": "Unknown route"}).to_string()),
-                headers: None,
-            })
+            Ok(json!({
+                "statusCode": 400,
+                "body": json!({"error": "Unknown route"}).to_string()
+            }))
         }
     }
 }
 
 async fn handle_connect(
-    connection_id: &str,
-    event: &WebSocketEvent,
+    event: &ApiGatewayWebsocketProxyRequest,
     state: state::AppState,
-) -> Result<WebSocketResponse, Error> {
+) -> Result<Value, Error> {
+    let connection_id = event.request_context.connection_id.as_deref().unwrap_or("");
     info!("WebSocket connection established: {}", connection_id);
     debug!("Attempting to store connection in DynamoDB");
 
     // Extract player_id from query parameters if available
-    let player_id = if let Some(query_params) = &event.query_string_parameters {
-        if let Some(player_id) = query_params.get("player_id").and_then(|p| p.as_str()) {
-            debug!("Found player_id from query parameters: {}", player_id);
-            player_id.to_string()
-        } else {
-            debug!("No player_id in query parameters, using connection_id as player_id");
-            format!("player_{}", connection_id)
-        }
+    let player_id = if let Some(player_id) = event.query_string_parameters.first("player_id") {
+        debug!("Found player_id from query parameters: {}", player_id);
+        player_id.to_string()
     } else {
-        debug!("No query parameters, using connection_id as player_id");
+        debug!("No player_id in query parameters, using connection_id as player_id");
         format!("player_{}", connection_id)
     };
 
@@ -138,25 +111,19 @@ async fn handle_connect(
     {
         error!("Failed to store connection {}: {}", connection_id, e);
         debug!("Error details: {:?}", e);
-        return Ok(WebSocketResponse {
-            status_code: 500,
-            body: Some(json!({"error": "Failed to store connection"}).to_string()),
-            headers: None,
-        });
+        return Ok(json!({
+            "statusCode": 500,
+            "body": json!({"error": "Failed to store connection"}).to_string()
+        }));
     }
 
     debug!("Successfully stored connection, returning 200 response");
-    Ok(WebSocketResponse {
-        status_code: 200,
-        body: None,
-        headers: None,
-    })
+    Ok(json!({
+        "statusCode": 200
+    }))
 }
 
-async fn handle_disconnect(
-    connection_id: &str,
-    state: state::AppState,
-) -> Result<WebSocketResponse, Error> {
+async fn handle_disconnect(connection_id: &str, state: state::AppState) -> Result<Value, Error> {
     info!("WebSocket connection disconnected: {}", connection_id);
     debug!("Attempting to remove connection from DynamoDB");
 
@@ -170,18 +137,16 @@ async fn handle_disconnect(
         debug!("Error details: {:?}", e);
     }
 
-    Ok(WebSocketResponse {
-        status_code: 200,
-        body: None,
-        headers: None,
-    })
+    Ok(json!({
+        "statusCode": 200
+    }))
 }
 
 async fn handle_default_message(
-    event: &WebSocketEvent,
+    event: &ApiGatewayWebsocketProxyRequest,
     state: state::AppState,
-) -> Result<WebSocketResponse, Error> {
-    let connection_id = &event.request_context.connection_id;
+) -> Result<Value, Error> {
+    let connection_id = event.request_context.connection_id.as_deref().unwrap_or("");
     debug!(
         "Processing default message for connection: {}",
         connection_id
@@ -204,18 +169,14 @@ async fn handle_default_message(
             Err(e) => {
                 error!("Failed to parse message: {}", e);
                 debug!("Parse error details: {:?}", e);
-                return Ok(WebSocketResponse {
-                    status_code: 400,
-                    body: Some(
-                        json!({
-                            "action": "error",
-                            "message": "Invalid JSON format",
-                            "timestamp": chrono::Utc::now().to_rfc3339()
-                        })
-                        .to_string(),
-                    ),
-                    headers: None,
-                });
+                return Ok(json!({
+                    "statusCode": 400,
+                    "body": json!({
+                        "action": "error",
+                        "message": "Invalid JSON format",
+                        "timestamp": chrono::Utc::now().to_rfc3339()
+                    }).to_string()
+                }));
             }
         };
 
@@ -238,18 +199,15 @@ async fn handle_default_message(
                         .await
                     {
                         error!("Failed to send pong response: {}", e);
-                        return Ok(WebSocketResponse {
-                            status_code: 500,
-                            body: Some(json!({"error": "Failed to send response"}).to_string()),
-                            headers: None,
-                        });
+                        return Ok(json!({
+                            "statusCode": 500,
+                            "body": json!({"error": "Failed to send response"}).to_string()
+                        }));
                     }
 
-                    return Ok(WebSocketResponse {
-                        status_code: 200,
-                        body: None,
-                        headers: None,
-                    });
+                    return Ok(json!({
+                        "statusCode": 200
+                    }));
                 }
                 "get_connection_status" => {
                     debug!("Handling get_connection_status action");
@@ -267,49 +225,15 @@ async fn handle_default_message(
                         .await
                     {
                         error!("Failed to send connection status response: {}", e);
-                        return Ok(WebSocketResponse {
-                            status_code: 500,
-                            body: Some(json!({"error": "Failed to send response"}).to_string()),
-                            headers: None,
-                        });
+                        return Ok(json!({
+                            "statusCode": 500,
+                            "body": json!({"error": "Failed to send response"}).to_string()
+                        }));
                     }
 
-                    return Ok(WebSocketResponse {
-                        status_code: 200,
-                        body: None,
-                        headers: None,
-                    });
-                }
-                "echo" => {
-                    debug!("Handling echo action");
-                    if let Some(data) = message.get("data") {
-                        debug!("Echo data: {:?}", data);
-                        let response = json!({
-                            "action": "echo",
-                            "data": data,
-                            "timestamp": chrono::Utc::now().to_rfc3339()
-                        });
-
-                        // Send response via API Gateway Management API
-                        if let Err(e) = state
-                            .websocket_service
-                            .send_message(connection_id, &response.to_string())
-                            .await
-                        {
-                            error!("Failed to send echo response: {}", e);
-                            return Ok(WebSocketResponse {
-                                status_code: 500,
-                                body: Some(json!({"error": "Failed to send response"}).to_string()),
-                                headers: None,
-                            });
-                        }
-
-                        return Ok(WebSocketResponse {
-                            status_code: 200,
-                            body: None,
-                            headers: None,
-                        });
-                    }
+                    return Ok(json!({
+                        "statusCode": 200
+                    }));
                 }
                 _ => {
                     // Unknown action
@@ -327,18 +251,15 @@ async fn handle_default_message(
                         .await
                     {
                         error!("Failed to send error response: {}", e);
-                        return Ok(WebSocketResponse {
-                            status_code: 500,
-                            body: Some(json!({"error": "Failed to send response"}).to_string()),
-                            headers: None,
-                        });
+                        return Ok(json!({
+                            "statusCode": 500,
+                            "body": json!({"error": "Failed to send response"}).to_string()
+                        }));
                     }
 
-                    return Ok(WebSocketResponse {
-                        status_code: 200,
-                        body: None,
-                        headers: None,
-                    });
+                    return Ok(json!({
+                        "statusCode": 200
+                    }));
                 }
             }
         }
@@ -358,18 +279,15 @@ async fn handle_default_message(
             .await
         {
             error!("Failed to send error response: {}", e);
-            return Ok(WebSocketResponse {
-                status_code: 500,
-                body: Some(json!({"error": "Failed to send response"}).to_string()),
-                headers: None,
-            });
+            return Ok(json!({
+                "statusCode": 500,
+                "body": json!({"error": "Failed to send response"}).to_string()
+            }));
         }
 
-        Ok(WebSocketResponse {
-            status_code: 200,
-            body: None,
-            headers: None,
-        })
+        Ok(json!({
+            "statusCode": 200
+        }))
     } else {
         // No body in message
         debug!("No body found in WebSocket event");
@@ -386,17 +304,14 @@ async fn handle_default_message(
             .await
         {
             error!("Failed to send error response: {}", e);
-            return Ok(WebSocketResponse {
-                status_code: 500,
-                body: Some(json!({"error": "Failed to send response"}).to_string()),
-                headers: None,
-            });
+            return Ok(json!({
+                "statusCode": 500,
+                "body": json!({"error": "Failed to send response"}).to_string()
+            }));
         }
 
-        Ok(WebSocketResponse {
-            status_code: 200,
-            body: None,
-            headers: None,
-        })
+        Ok(json!({
+            "statusCode": 200
+        }))
     }
 }
