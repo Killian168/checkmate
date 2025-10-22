@@ -66,7 +66,7 @@ impl QueueService {
         let queue_type = user.queue_type();
 
         // Progressive search ranges: ±100, ±200, ±300, ±400, ±500
-        let search_ranges = vec![100, 200, 300, 400, 500];
+        let search_ranges = vec![0, 100, 200, 300, 400, 500];
 
         for range in search_ranges {
             if let Some(opponent) = self

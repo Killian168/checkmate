@@ -1,5 +1,3 @@
-//! E2E test scenarios organized by functionality
-
 pub mod authentication;
 pub mod queue;
 pub mod websocket;
@@ -12,8 +10,6 @@ pub enum TestCategory {
     Queue,
     /// WebSocket connection and messaging tests
     WebSocket,
-    /// All test categories combined
-    All,
 }
 
 impl TestCategory {
@@ -45,13 +41,6 @@ impl TestCategory {
                 "test_websocket_invalid_credentials",
                 "test_concurrent_websocket_connections",
             ],
-            TestCategory::All => {
-                let mut all = Vec::new();
-                all.extend(TestCategory::Authentication.test_functions());
-                all.extend(TestCategory::Queue.test_functions());
-                all.extend(TestCategory::WebSocket.test_functions());
-                all
-            }
         }
     }
 

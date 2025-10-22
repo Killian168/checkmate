@@ -1,7 +1,10 @@
+use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
+use std::time::Duration;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use tokio::time::timeout;
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 use crate::e2e_tests_internal::config::E2EConfig;
 use crate::e2e_tests_internal::utils::{generate_test_email, generate_test_password, TestResult};
@@ -13,6 +16,7 @@ pub struct TestClient {
     websocket_url: String,
     pub auth_token: Option<String>,
     user_id: Option<String>,
+    websocket_connections: Vec<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
 impl TestClient {
@@ -24,6 +28,7 @@ impl TestClient {
             websocket_url: "wss://yphq15v1gk.execute-api.eu-west-1.amazonaws.com/dev".to_string(),
             auth_token: None,
             user_id: None,
+            websocket_connections: Vec::new(),
         }
     }
 
@@ -35,6 +40,7 @@ impl TestClient {
             websocket_url: config.websocket_url.clone(),
             auth_token: None,
             user_id: None,
+            websocket_connections: Vec::new(),
         }
     }
 
@@ -183,13 +189,142 @@ impl TestClient {
     }
 
     /// Establish a WebSocket connection
-    pub async fn establish_websocket_connection(
-        &self,
-        _player_id: &str,
-    ) -> TestResult<WebSocketStream<MaybeTlsStream<TcpStream>>> {
-        // Note: player_id parameter is currently unused but kept for API compatibility
-        let (ws_stream, _) = connect_async(&self.websocket_url).await?;
-        Ok(ws_stream)
+    pub async fn establish_websocket_connection(&mut self, player_id: &str) -> TestResult<()> {
+        let url = format!("{}?player_id={}", self.websocket_url, player_id);
+        println!(
+            "Establishing WebSocket connection for player {} to URL: {}",
+            player_id, url
+        );
+        let (ws_stream, _) = connect_async(&url).await?;
+        println!(
+            "WebSocket connection established successfully for player {}",
+            player_id
+        );
+        self.websocket_connections.push(ws_stream);
+        println!(
+            "WebSocket connection stored, total connections: {}",
+            self.websocket_connections.len()
+        );
+        Ok(())
+    }
+
+    /// Send a message through the WebSocket connection
+    pub async fn send_websocket_message(&mut self, message: &str) -> TestResult<()> {
+        if let Some(connection) = self.websocket_connections.last_mut() {
+            connection.send(Message::Text(message.to_string())).await?;
+        } else {
+            return Err("No WebSocket connection established".into());
+        }
+        Ok(())
+    }
+
+    /// Receive a message from the WebSocket connection with timeout
+    pub async fn receive_websocket_message(
+        &mut self,
+        timeout_duration: Duration,
+    ) -> TestResult<Option<String>> {
+        if let Some(connection) = self.websocket_connections.last_mut() {
+            match timeout(timeout_duration, connection.next()).await {
+                Ok(Some(Ok(message))) => {
+                    if let Message::Text(text) = message {
+                        Ok(Some(text))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Ok(Some(Err(e))) => Err(e.into()),
+                Ok(None) => Ok(None),
+                Err(_) => Ok(None), // Timeout
+            }
+        } else {
+            Err("No WebSocket connection established".into())
+        }
+    }
+
+    /// Wait for a specific message with timeout
+    pub async fn wait_for_websocket_message(
+        &mut self,
+        expected_action: &str,
+        timeout_duration: Duration,
+    ) -> TestResult<Value> {
+        let start = std::time::Instant::now();
+        println!(
+            "Waiting for WebSocket message with action: '{}' for up to {:?}",
+            expected_action, timeout_duration
+        );
+
+        while start.elapsed() < timeout_duration {
+            if let Some(connection) = self.websocket_connections.last_mut() {
+                match timeout(Duration::from_millis(100), connection.next()).await {
+                    Ok(Some(Ok(message))) => {
+                        println!("Received WebSocket message: {:?}", message);
+                        if let Message::Text(text) = message {
+                            println!("Processing text message: {}", text);
+                            if let Ok(json_message) = serde_json::from_str::<Value>(&text) {
+                                println!("Parsed JSON message: {:?}", json_message);
+                                if let Some(action) =
+                                    json_message.get("action").and_then(|a| a.as_str())
+                                {
+                                    println!("Found action: {}", action);
+                                    if action == expected_action {
+                                        println!(
+                                            "Found expected action '{}', returning message",
+                                            expected_action
+                                        );
+                                        return Ok(json_message);
+                                    } else {
+                                        println!(
+                                            "Action '{}' does not match expected '{}', continuing",
+                                            action, expected_action
+                                        );
+                                    }
+                                } else {
+                                    println!("No action field found in message");
+                                }
+                            } else {
+                                println!("Failed to parse message as JSON");
+                            }
+                        } else {
+                            println!("Received non-text message, ignoring");
+                        }
+                    }
+                    Ok(Some(Err(e))) => {
+                        println!("WebSocket error: {}", e);
+                        return Err(e.into());
+                    }
+                    Ok(None) => {
+                        println!("WebSocket connection closed");
+                        return Err("WebSocket connection closed".into());
+                    }
+                    Err(_) => {
+                        // Timeout, continue waiting
+                        if start.elapsed().as_secs() % 5 == 0 {
+                            println!(
+                                "Still waiting for message... ({:?} elapsed)",
+                                start.elapsed()
+                            );
+                        }
+                    }
+                }
+            } else {
+                println!("No WebSocket connection available");
+                return Err("No WebSocket connection established".into());
+            }
+        }
+
+        Err(format!(
+            "Timeout waiting for message with action: {}",
+            expected_action
+        )
+        .into())
+    }
+
+    /// Close all WebSocket connections
+    pub async fn close_websocket_connections(&mut self) -> TestResult<()> {
+        for mut connection in self.websocket_connections.drain(..) {
+            connection.close(None).await?;
+        }
+        Ok(())
     }
 
     /// Create and register a test user in one operation

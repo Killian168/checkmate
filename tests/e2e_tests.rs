@@ -1,18 +1,8 @@
-//! End-to-End (E2E) tests for the Checkmate application
-//!
-//! This file serves as the main entry point for E2E tests, using the
-//! organized module structure in the `e2e_tests_internal` directory.
-
-// Import the organized E2E testing framework
 mod e2e_tests_internal;
 
-// Re-export for convenient access in tests
 pub use e2e_tests_internal::{
-    run_all_e2e_tests, run_e2e_tests_by_category, run_e2e_tests_with_config, E2EConfig, TestClient,
-    TestResult, TestTimer, TestUser,
+    run_e2e_tests_by_category, E2EConfig, TestClient, TestResult, TestTimer, TestUser,
 };
-
-// Import test scenarios for direct access if needed
 
 #[cfg(test)]
 mod tests {
@@ -57,6 +47,14 @@ mod tests {
         e2e_tests_internal::scenarios::queue::test_multiple_users_queue_interaction()
             .await
             .expect("Multiple users queue interaction test failed");
+    }
+
+    /// Game matching notifications test
+    #[tokio::test]
+    async fn run_game_matching_notifications() {
+        e2e_tests_internal::scenarios::websocket::test_game_matching_notifications()
+            .await
+            .expect("Game matching notifications test failed");
     }
 
     /// Authentication flow test
@@ -113,22 +111,5 @@ mod tests {
         run_e2e_tests_by_category(TestCategory::WebSocket)
             .await
             .expect("WebSocket category tests failed");
-    }
-
-    /// Run all E2E tests (comprehensive test suite)
-    #[tokio::test]
-    async fn run_all_e2e_tests_suite() {
-        run_all_e2e_tests()
-            .await
-            .expect("All E2E tests suite failed");
-    }
-
-    /// Test with custom configuration
-    #[tokio::test]
-    async fn run_tests_with_custom_config() {
-        let config = E2EConfig::default();
-        run_e2e_tests_with_config(config)
-            .await
-            .expect("Tests with custom configuration failed");
     }
 }

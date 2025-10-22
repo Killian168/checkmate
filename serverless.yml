@@ -103,6 +103,7 @@ functions:
             - eventName: [INSERT]
     environment:
       GAME_SESSIONS_TABLE: !Ref GameSessionsTable
+      PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
 
 resources:
   Resources:

@@ -126,25 +126,25 @@ impl QueueRepository for DynamoDbQueueRepository {
     }
 
     async fn reserve_opponent(&self, opponent: &QueueUser) -> Result<bool, QueueRepositoryError> {
-        let update_result = self
+        // Instead of using a reserved attribute, we'll delete the opponent from the queue
+        // This ensures atomic reservation - if we can delete it, we've successfully reserved it
+        let delete_result = self
             .client
-            .update_item()
+            .delete_item()
             .table_name(&self.table_name)
             .key(
                 "queue_rating",
                 AttributeValue::S(opponent.queue_rating.clone()),
             )
             .key("player_id", AttributeValue::S(opponent.player_id.clone()))
-            .update_expression("SET reserved = :reserved")
-            .condition_expression("attribute_not_exists(reserved)")
-            .expression_attribute_values(":reserved", AttributeValue::Bool(true))
+            .condition_expression("attribute_exists(player_id)")
             .send()
             .await;
 
-        match update_result {
-            Ok(_) => Ok(true), // Successfully reserved the opponent
+        match delete_result {
+            Ok(_) => Ok(true), // Successfully reserved (deleted) the opponent
             Err(e) => {
-                // Check if the condition check failed (opponent already reserved)
+                // Check if the condition check failed (opponent already deleted/reserved)
                 if let SdkError::ServiceError(service_err) = &e {
                     if service_err.err().is_conditional_check_failed_exception() {
                         return Ok(false); // Opponent already reserved by another process
