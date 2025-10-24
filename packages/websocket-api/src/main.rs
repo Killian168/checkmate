@@ -10,8 +10,10 @@ pub mod state;
 use shared::repositories::websocket_repository::DynamoDbWebSocketRepository;
 use shared::services::websocket_service::WebSocketService;
 
-use crate::actions::connection::{handle_connect, handle_disconnect};
+use crate::actions::connect::handle_connect;
 use crate::actions::default::handle_default_message;
+use crate::actions::disconnect::handle_disconnect;
+use crate::actions::make_move::handle_make_move;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -63,6 +65,7 @@ async fn websocket_handler(
         "$connect" => handle_connect(&websocket_event, state).await,
         "$disconnect" => handle_disconnect(connection_id, state).await,
         "$default" => handle_default_message(&websocket_event, state).await,
+        "make_move" => handle_make_move(&websocket_event, state).await,
         _ => Ok(json!({
             "statusCode": 400,
             "body": json!({"error": "Unknown route"}).to_string()

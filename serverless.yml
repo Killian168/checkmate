@@ -85,8 +85,11 @@ functions:
           route: $disconnect
       - websocket:
           route: $default
+      - websocket:
+          route: make_move
     environment:
       PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
+      WEBSOCKET_API_URL: !GetAtt WebsocketApi.ApiEndpoint
 
   game-session-notifier:
     name: ${self:service}-${sls:stage}-game-session-notifier
