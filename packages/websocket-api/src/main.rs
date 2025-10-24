@@ -3,16 +3,15 @@ use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use serde_json::{json, Value};
 use std::env::set_var;
 use std::sync::Arc;
-use tracing::{debug, error};
 
-pub mod routes;
+pub mod actions;
 pub mod state;
 
 use shared::repositories::websocket_repository::DynamoDbWebSocketRepository;
 use shared::services::websocket_service::WebSocketService;
 
-use crate::routes::connection::{handle_connect, handle_disconnect};
-use crate::routes::default::handle_default_message;
+use crate::actions::connection::{handle_connect, handle_disconnect};
+use crate::actions::default::handle_default_message;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -48,8 +47,6 @@ async fn websocket_handler(
     event: LambdaEvent<ApiGatewayWebsocketProxyRequest>,
     state: state::AppState,
 ) -> Result<Value, Error> {
-    debug!("Received WebSocket event: {:?}", event);
-
     let websocket_event = event.payload;
     let route_key = websocket_event
         .request_context
@@ -62,30 +59,13 @@ async fn websocket_handler(
         .as_deref()
         .unwrap_or("");
 
-    debug!(
-        "Processing route_key: {}, connection_id: {}",
-        route_key, connection_id
-    );
-
     match route_key {
-        "$connect" => {
-            debug!("Handling $connect route");
-            handle_connect(&websocket_event, state).await
-        }
-        "$disconnect" => {
-            debug!("Handling $disconnect route");
-            handle_disconnect(connection_id, state).await
-        }
-        "$default" => {
-            debug!("Handling $default route");
-            handle_default_message(&websocket_event, state).await
-        }
-        _ => {
-            error!("Unknown route key: {}", route_key);
-            Ok(json!({
-                "statusCode": 400,
-                "body": json!({"error": "Unknown route"}).to_string()
-            }))
-        }
+        "$connect" => handle_connect(&websocket_event, state).await,
+        "$disconnect" => handle_disconnect(connection_id, state).await,
+        "$default" => handle_default_message(&websocket_event, state).await,
+        _ => Ok(json!({
+            "statusCode": 400,
+            "body": json!({"error": "Unknown route"}).to_string()
+        })),
     }
 }
