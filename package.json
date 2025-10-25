@@ -10,16 +10,7 @@
     "deploy": "npm run build && serverless deploy",
     "deploy:dev": "npm run build && serverless deploy --stage dev",
     "deploy:prod": "npm run build && serverless deploy --stage prod",
-    "clean": "cargo clean && rm -rf target",
-    "test": "cargo run --bin test-runner -- all",
-    "test:unit": "cargo run --bin test-runner -- unit",
-    "test:integration": "cargo run --bin test-runner -- integration",
-    "test:e2e": "cargo run --bin test-runner -- e2e",
-    "test:bench": "cargo run --bin test-runner -- bench",
-    "test:coverage": "cargo run --bin test-runner -- coverage",
-    "test:ci": "cargo run --bin test-runner -- all --ci --coverage",
-    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
-    "test:deploy-dev": "npm run deploy:dev && npm run test:e2e"
+    "clean": "cargo clean && rm -rf target"
   },
   "devDependencies": {
     "serverless": "^4.0.0",
