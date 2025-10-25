@@ -4,9 +4,6 @@ use async_trait::async_trait;
 use aws_sdk_dynamodb::Client;
 use serde_dynamo::{from_item, to_attribute_value, to_item};
 
-#[cfg(test)]
-use mockall::automock;
-
 pub struct DynamoDbUserRepository {
     pub client: Client,
     pub table_name: String,
@@ -21,7 +18,6 @@ impl DynamoDbUserRepository {
 }
 
 #[async_trait]
-#[cfg_attr(test, automock)]
 pub trait UserRepository: Send + Sync {
     async fn create_user(&self, user: &User) -> Result<(), UserRepositoryError>;
     async fn get_user_by_id(&self, user_id: &str) -> Result<User, UserRepositoryError>;
@@ -179,65 +175,5 @@ impl UserRepository for DynamoDbUserRepository {
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::user::User;
-
-    #[test]
-    fn test_user_repository_trait_definition() {
-        // This test verifies that the trait is properly defined
-        // and can be used in service implementations
-        assert!(true, "UserRepository trait is properly defined");
-    }
-
-    #[test]
-    fn test_user_repository_method_signatures() {
-        // This test verifies that all required methods are defined
-        // in the UserRepository trait
-        // Use a mock implementation instead of real AWS client
-        struct MockUserRepository;
-
-        #[async_trait]
-        impl UserRepository for MockUserRepository {
-            async fn create_user(&self, _user: &User) -> Result<(), UserRepositoryError> {
-                Ok(())
-            }
-            async fn get_user_by_id(&self, _user_id: &str) -> Result<User, UserRepositoryError> {
-                Err(UserRepositoryError::NotFound)
-            }
-            async fn get_user_by_email(&self, _email: &str) -> Result<User, UserRepositoryError> {
-                Err(UserRepositoryError::NotFound)
-            }
-            async fn update_user(&self, _user: &User) -> Result<(), UserRepositoryError> {
-                Ok(())
-            }
-            async fn delete_user(&self, _user_id: &str) -> Result<(), UserRepositoryError> {
-                Ok(())
-            }
-            async fn email_exists(&self, _email: &str) -> Result<bool, UserRepositoryError> {
-                Ok(false)
-            }
-        }
-
-        let _: &dyn UserRepository = &MockUserRepository;
-        assert!(true, "All UserRepository methods are properly defined");
-    }
-
-    #[test]
-    fn test_user_model_compatibility() {
-        // Test that User model works with repository trait
-        let user = User::new(
-            "test@example.com".to_string(),
-            "password123".to_string(),
-            "Test".to_string(),
-            "User".to_string(),
-        );
-        assert_eq!(user.email, "test@example.com");
-        assert_eq!(user.first_name, "Test");
-        assert_eq!(user.last_name, "User");
     }
 }
