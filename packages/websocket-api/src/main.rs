@@ -81,6 +81,19 @@ async fn websocket_handler(
         .connection_id
         .as_ref()
         .ok_or_else(|| Error::from("Connection ID not found"))?;
+
+    // Authenticate the user
+    let user_id = match authenticate_user(&websocket_event, state.clone()).await {
+        Ok(id) => id,
+        Err(e) => {
+            return Ok(json!({
+                "statusCode": 401,
+                "body": json!({"error": format!("{}", e)}).to_string()
+            }));
+        }
+    };
+
+    // Route request
     let route_key = websocket_event
         .request_context
         .route_key
@@ -88,22 +101,10 @@ async fn websocket_handler(
         .unwrap_or("");
 
     match route_key {
-        "$connect" => {
-            // Authenticate the user
-            let user_id = match authenticate_user(&websocket_event, state.clone()).await {
-                Ok(id) => id,
-                Err(e) => {
-                    return Ok(json!({
-                        "statusCode": 401,
-                        "body": json!({"error": format!("{}", e)}).to_string()
-                    }));
-                }
-            };
-            handle_connect(&user_id, connection_id, state).await
-        }
+        "$connect" => handle_connect(&user_id, connection_id, state).await,
         "$disconnect" => handle_disconnect(connection_id, state).await,
         "$default" => handle_default_message(connection_id, state).await,
-        "make_move" => handle_make_move(&websocket_event, connection_id, state).await,
+        "make_move" => handle_make_move(&websocket_event, &user_id, state).await,
         _ => Ok(json!({
             "statusCode": 400,
             "body": json!({"error": "Unknown route"}).to_string()
