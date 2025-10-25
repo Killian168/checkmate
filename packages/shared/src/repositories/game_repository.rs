@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use aws_sdk_dynamodb::Client;
 
 pub struct DynamoDbGameSessionRepository {
-    pub client: aws_sdk_dynamodb::Client,
+    pub client: Client,
     pub table_name: String,
 }
 
@@ -93,7 +93,8 @@ impl GameSessionRepository for DynamoDbGameSessionRepository {
             .client
             .put_item()
             .table_name(&self.table_name)
-            .set_item(Some(item));
+            .set_item(Some(item))
+            .condition_expression("attribute_exists(session_id)");
 
         request
             .send()
