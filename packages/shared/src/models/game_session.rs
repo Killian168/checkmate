@@ -1,5 +1,59 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GameStatus {
+    Ongoing,
+    Checkmate,
+    Stalemate,
+    Resigned,
+    Draw,
+    Timeout,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Turn {
+    White,
+    Black,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameSession {
+    pub session_id: String,
+    pub player1_id: String,
+    pub player2_id: String,
+    pub fen_board: String,
+    pub player_white_id: String,
+    pub player_black_id: String,
+    pub move_history: Vec<String>,
+    pub status: GameStatus,
+    pub winner: Option<String>,
+    pub creation_time: DateTime<Utc>,
+    pub whose_turn: Turn,
+    pub time_remaining_white: u64,
+    pub time_remaining_black: u64,
+}
+
+impl GameSession {
+    pub fn new(player1_id: &str, player2_id: &str) -> Self {
+        GameSession {
+            session_id: Uuid::new_v4().to_string(),
+            player1_id: player1_id.to_string(),
+            player2_id: player2_id.to_string(),
+            fen_board: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string(),
+            player_white_id: player1_id.to_string(),
+            player_black_id: player2_id.to_string(),
+            move_history: vec![],
+            status: GameStatus::Ongoing,
+            winner: None,
+            creation_time: Utc::now(),
+            whose_turn: Turn::White,
+            time_remaining_white: 600,
+            time_remaining_black: 600,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -113,21 +167,58 @@ mod tests {
         let unique_ids: std::collections::HashSet<&str> = session_ids.iter().cloned().collect();
         assert_eq!(unique_ids.len(), 3, "All session IDs should be unique");
     }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GameSession {
-    pub session_id: String,
-    pub player1_id: String,
-    pub player2_id: String,
-}
+    #[test]
+    fn test_new_game_session_fields() {
+        let session = GameSession::new("player1", "player2");
 
-impl GameSession {
-    pub fn new(player1_id: &str, player2_id: &str) -> Self {
-        GameSession {
-            session_id: Uuid::new_v4().to_string(),
-            player1_id: player1_id.to_string(),
-            player2_id: player2_id.to_string(),
-        }
+        assert_eq!(
+            session.fen_board,
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        );
+        assert_eq!(session.player_white_id, "player1");
+        assert_eq!(session.player_black_id, "player2");
+        assert!(session.move_history.is_empty());
+        assert!(matches!(session.status, GameStatus::Ongoing));
+        assert!(session.winner.is_none());
+        assert!(matches!(session.whose_turn, Turn::White));
+        assert_eq!(session.time_remaining_white, 600);
+        assert_eq!(session.time_remaining_black, 600);
+
+        // creation_time should be recent
+        let now = Utc::now();
+        assert!((now - session.creation_time).num_seconds() < 10);
+    }
+
+    #[test]
+    fn test_enum_serialization() {
+        let status = GameStatus::Checkmate;
+        let turn = Turn::Black;
+
+        let serialized = serde_json::to_string(&status).unwrap();
+        assert_eq!(serialized, "\"Checkmate\"");
+
+        let deserialized: GameStatus = serde_json::from_str(&serialized).unwrap();
+        assert!(matches!(deserialized, GameStatus::Checkmate));
+
+        let turn_serialized = serde_json::to_string(&turn).unwrap();
+        assert_eq!(turn_serialized, "\"Black\"");
+    }
+
+    #[test]
+    fn test_serialization_with_new_fields() {
+        let session = GameSession::new("player1", "player2");
+
+        let serialized = serde_json::to_string(&session).unwrap();
+
+        assert!(serialized.contains("\"fen_board\""));
+        assert!(serialized.contains("\"player_white_id\""));
+        assert!(serialized.contains("\"status\""));
+        assert!(serialized.contains("\"time_remaining_white\""));
+
+        let deserialized: GameSession = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(deserialized.session_id, session.session_id);
+        assert_eq!(deserialized.fen_board, session.fen_board);
     }
 }
