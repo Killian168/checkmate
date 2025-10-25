@@ -4,6 +4,7 @@ use std::env::set_var;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 
+pub mod error;
 pub mod middleware;
 pub mod routes;
 pub mod state;

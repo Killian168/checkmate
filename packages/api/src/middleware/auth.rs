@@ -1,10 +1,6 @@
-use axum::{
-    extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
-};
-use lambda_http::tracing::warn;
+use axum::{extract::FromRequestParts, http::request::Parts};
 
-use crate::state::AppState;
+use crate::{error::ApiError, state::AppState};
 use shared::services::auth_service::AuthServiceTrait;
 use shared::services::errors::auth_service_errors::AuthServiceError;
 
@@ -14,7 +10,7 @@ pub struct AuthenticatedUser {
 }
 
 impl FromRequestParts<AppState> for AuthenticatedUser {
-    type Rejection = StatusCode;
+    type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut Parts,
@@ -24,39 +20,27 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         let auth_header = parts
             .headers
             .get("Authorization")
-            .ok_or(StatusCode::UNAUTHORIZED)?
+            .ok_or_else(|| ApiError::AuthService(AuthServiceError::InvalidCredentials))?
             .to_str()
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
+            .map_err(|_| {
+                ApiError::AuthService(AuthServiceError::ValidationError(
+                    "Invalid header format".to_string(),
+                ))
+            })?;
 
         // Check if it starts with "Bearer "
         if !auth_header.starts_with("Bearer ") {
-            warn!("Invalid Authorization header format");
-            return Err(StatusCode::UNAUTHORIZED);
+            return Err(ApiError::AuthService(AuthServiceError::InvalidCredentials));
         }
 
         // Extract the token (remove "Bearer " prefix)
         let token = &auth_header[7..];
 
         // Verify JWT and extract user ID
-        let user_id = match state.auth_service.extract_user_id_from_token(token) {
-            Ok(id) => id,
-            Err(e) => match e {
-                AuthServiceError::InvalidToken => {
-                    warn!("Invalid JWT token provided");
-                    return Err(StatusCode::UNAUTHORIZED);
-                }
-                AuthServiceError::ExpiredToken => {
-                    warn!("Expired JWT token provided");
-                    return Err(StatusCode::UNAUTHORIZED);
-                }
-                AuthServiceError::JwtError(_) => {
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
-                _ => {
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
-            },
-        };
+        let user_id = state
+            .auth_service
+            .extract_user_id_from_token(token)
+            .map_err(|e| ApiError::from(e))?;
 
         Ok(AuthenticatedUser { user_id })
     }

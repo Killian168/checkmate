@@ -5,7 +5,6 @@ members = [
     "packages/queue-processor",
     "packages/shared",
     "packages/websocket-api",
-    "tests",
 ]
 resolver = "2"
 
