@@ -25,4 +25,14 @@ impl GameSessionService {
         self.repository.create_game_session(&game_session).await?;
         Ok(())
     }
+
+    pub async fn get_game_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<GameSession>, GameSessionServiceError> {
+        self.repository
+            .get_game_session(session_id)
+            .await
+            .map_err(GameSessionServiceError::from)
+    }
 }

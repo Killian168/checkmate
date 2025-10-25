@@ -10,8 +10,6 @@ provider:
   runtime: provided.al2023
   httpApi:
     cors: true
-  websocketApi:
-    routeSelectionExpression: $request.body.action
   iam:
     role:
       statements: # ToDo: Tighten this up
@@ -89,7 +87,7 @@ functions:
           route: make_move
     environment:
       PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
-      WEBSOCKET_API_URL: !GetAtt WebsocketApi.ApiEndpoint
+      JWT_SECRET: ThisIsMySecret # ToDo: Tighten this up
 
   game-session-notifier:
     name: ${self:service}-${sls:stage}-game-session-notifier
@@ -188,6 +186,15 @@ resources:
         AttributeDefinitions:
           - AttributeName: player_id
             AttributeType: S
+          - AttributeName: connection_id
+            AttributeType: S
         KeySchema:
           - AttributeName: player_id
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: GSI_ConnectionByConnectionId
+            KeySchema:
+              - AttributeName: connection_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL

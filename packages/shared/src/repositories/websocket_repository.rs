@@ -27,6 +27,11 @@ pub trait WebSocketRepository: Send + Sync {
         player_id: &str,
     ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>>;
 
+    async fn get_player_id(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>>;
+
     async fn send_message(
         &self,
         connection_id: &str,
@@ -158,6 +163,36 @@ impl WebSocketRepository for DynamoDbWebSocketRepository {
                     connection_id_attr
                 {
                     return Ok(Some(connection_id.clone()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn get_player_id(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let result = self
+            .dynamodb_client
+            .query()
+            .table_name(&self.table_name)
+            .index_name("GSI_ConnectionByConnectionId")
+            .key_condition_expression("connection_id = :connection_id")
+            .expression_attribute_values(
+                ":connection_id",
+                aws_sdk_dynamodb::types::AttributeValue::S(connection_id.to_string()),
+            )
+            .send()
+            .await?;
+
+        if let Some(items) = result.items {
+            if let Some(item) = items.first() {
+                if let Some(player_id_attr) = item.get("player_id") {
+                    if let aws_sdk_dynamodb::types::AttributeValue::S(player_id) = player_id_attr {
+                        return Ok(Some(player_id.clone()));
+                    }
                 }
             }
         }

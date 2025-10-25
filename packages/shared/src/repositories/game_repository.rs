@@ -22,6 +22,11 @@ pub trait GameSessionRepository: Send + Sync {
         &self,
         game_session: &GameSession,
     ) -> Result<(), GameSessionRepositoryError>;
+
+    async fn get_game_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<GameSession>, GameSessionRepositoryError>;
 }
 
 #[async_trait]
@@ -45,5 +50,30 @@ impl GameSessionRepository for DynamoDbGameSessionRepository {
             .map_err(|e| GameSessionRepositoryError::DynamoDb(e.to_string()))?;
 
         Ok(())
+    }
+
+    async fn get_game_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<GameSession>, GameSessionRepositoryError> {
+        let result = self
+            .client
+            .get_item()
+            .table_name(&self.table_name)
+            .key(
+                "session_id",
+                aws_sdk_dynamodb::types::AttributeValue::S(session_id.to_string()),
+            )
+            .send()
+            .await
+            .map_err(|e| GameSessionRepositoryError::DynamoDb(e.to_string()))?;
+
+        if let Some(item) = result.item {
+            let game_session: GameSession = serde_dynamo::from_item(item)
+                .map_err(|e| GameSessionRepositoryError::Serialization(e.to_string()))?;
+            Ok(Some(game_session))
+        } else {
+            Ok(None)
+        }
     }
 }

@@ -47,6 +47,13 @@ impl WebSocketService {
         self.repository.get_connection_id(player_id).await
     }
 
+    pub async fn get_player_id(
+        &self,
+        connection_id: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        self.repository.get_player_id(connection_id).await
+    }
+
     pub async fn send_notification(
         &self,
         player_id: &str,
