@@ -29,6 +29,16 @@ pub async fn run_e2e_tests_by_category(category: scenarios::TestCategory) -> Tes
             scenarios::websocket::test_websocket_multiple_connections().await?;
             scenarios::websocket::test_websocket_reconnection().await?;
         }
+        scenarios::TestCategory::Game => {
+            scenarios::game::test_complete_chess_game().await?;
+            scenarios::game::test_invalid_move_handling().await?;
+            scenarios::game::test_pawn_promotion().await?;
+            scenarios::game::test_stalemate_detection().await?;
+            scenarios::game::test_concurrent_games().await?;
+            scenarios::game::test_game_abandonment().await?;
+            scenarios::game::test_time_controls().await?;
+            scenarios::game::test_draw_agreement().await?;
+        }
     }
 
     println!("Category E2E tests completed successfully!");

@@ -25,10 +25,9 @@ async fn main() -> Result<(), Error> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    // Set up services
+    // Set up services with single config loading
     let config = aws_config::load_from_env().await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
-    let api_gateway_client = aws_sdk_apigatewaymanagement::Client::new(&config);
 
     let user_repository = Arc::new(
         shared::repositories::user_repository::DynamoDbUserRepository::new(dynamodb_client.clone()),
@@ -42,12 +41,14 @@ async fn main() -> Result<(), Error> {
 
     let websocket_repository = Arc::new(DynamoDbWebSocketRepository::new(
         dynamodb_client.clone(),
-        api_gateway_client,
+        aws_sdk_apigatewaymanagement::Client::new(&config),
     ));
     let websocket_service = Arc::new(WebSocketService::new(websocket_repository));
 
     let game_session_repository = Arc::new(
-        shared::repositories::game_repository::DynamoDbGameSessionRepository::new(dynamodb_client),
+        shared::repositories::game_repository::DynamoDbGameSessionRepository::new(
+            dynamodb_client.clone(),
+        ),
     );
     let game_session_service = Arc::new(GameSessionService::new(game_session_repository));
 

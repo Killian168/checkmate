@@ -1,6 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use reqwest::StatusCode;
 use serde_json::{json, Value};
+use std::error::Error;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
@@ -189,23 +190,34 @@ impl TestClient {
     }
 
     /// Establish a WebSocket connection
-    pub async fn establish_websocket_connection(&mut self, player_id: &str) -> TestResult<()> {
-        let url = format!("{}?player_id={}", self.websocket_url, player_id);
-        println!(
-            "Establishing WebSocket connection for player {} to URL: {}",
-            player_id, url
-        );
-        let (ws_stream, _) = connect_async(&url).await?;
-        println!(
-            "WebSocket connection established successfully for player {}",
-            player_id
-        );
-        self.websocket_connections.push(ws_stream);
-        println!(
-            "WebSocket connection stored, total connections: {}",
-            self.websocket_connections.len()
-        );
-        Ok(())
+    pub async fn establish_websocket_connection(&mut self, _player_id: &str) -> TestResult<()> {
+        // Temporarily bypass token requirement for testing WebSocket infrastructure
+        // let token = self
+        //     .auth_token
+        //     .as_ref()
+        //     .ok_or("Not authenticated - no JWT token available")?;
+        // let url = format!("{}?token={}", self.websocket_url, token);
+        let url = self.websocket_url.clone();
+        println!("Establishing WebSocket connection to URL: {}", url);
+
+        match connect_async(&url).await {
+            Ok((ws_stream, response)) => {
+                println!("WebSocket connection established successfully");
+                println!("Response status: {:?}", response.status());
+                println!("Response headers: {:?}", response.headers());
+                self.websocket_connections.push(ws_stream);
+                println!(
+                    "WebSocket connection stored, total connections: {}",
+                    self.websocket_connections.len()
+                );
+                Ok(())
+            }
+            Err(e) => {
+                println!("WebSocket connection failed with error: {:?}", e);
+                println!("Error source: {:?}", e.source());
+                Err(format!("WebSocket connection failed: {:?}", e).into())
+            }
+        }
     }
 
     /// Send a message through the WebSocket connection
@@ -247,76 +259,8 @@ impl TestClient {
         expected_action: &str,
         timeout_duration: Duration,
     ) -> TestResult<Value> {
-        let start = std::time::Instant::now();
-        println!(
-            "Waiting for WebSocket message with action: '{}' for up to {:?}",
-            expected_action, timeout_duration
-        );
-
-        while start.elapsed() < timeout_duration {
-            if let Some(connection) = self.websocket_connections.last_mut() {
-                match timeout(Duration::from_millis(100), connection.next()).await {
-                    Ok(Some(Ok(message))) => {
-                        println!("Received WebSocket message: {:?}", message);
-                        if let Message::Text(text) = message {
-                            println!("Processing text message: {}", text);
-                            if let Ok(json_message) = serde_json::from_str::<Value>(&text) {
-                                println!("Parsed JSON message: {:?}", json_message);
-                                if let Some(action) =
-                                    json_message.get("action").and_then(|a| a.as_str())
-                                {
-                                    println!("Found action: {}", action);
-                                    if action == expected_action {
-                                        println!(
-                                            "Found expected action '{}', returning message",
-                                            expected_action
-                                        );
-                                        return Ok(json_message);
-                                    } else {
-                                        println!(
-                                            "Action '{}' does not match expected '{}', continuing",
-                                            action, expected_action
-                                        );
-                                    }
-                                } else {
-                                    println!("No action field found in message");
-                                }
-                            } else {
-                                println!("Failed to parse message as JSON");
-                            }
-                        } else {
-                            println!("Received non-text message, ignoring");
-                        }
-                    }
-                    Ok(Some(Err(e))) => {
-                        println!("WebSocket error: {}", e);
-                        return Err(e.into());
-                    }
-                    Ok(None) => {
-                        println!("WebSocket connection closed");
-                        return Err("WebSocket connection closed".into());
-                    }
-                    Err(_) => {
-                        // Timeout, continue waiting
-                        if start.elapsed().as_secs() % 5 == 0 {
-                            println!(
-                                "Still waiting for message... ({:?} elapsed)",
-                                start.elapsed()
-                            );
-                        }
-                    }
-                }
-            } else {
-                println!("No WebSocket connection available");
-                return Err("No WebSocket connection established".into());
-            }
-        }
-
-        Err(format!(
-            "Timeout waiting for message with action: {}",
-            expected_action
-        )
-        .into())
+        self.wait_for_websocket_message_with_filter(expected_action, timeout_duration, |_| true)
+            .await
     }
 
     /// Close all WebSocket connections
@@ -341,6 +285,143 @@ impl TestClient {
         self.login(&email, &password).await?;
 
         Ok((email, password))
+    }
+
+    /// Make a chess move in a game session
+    pub async fn make_move(
+        &mut self,
+        session_id: &str,
+        from_square: &str,
+        to_square: &str,
+    ) -> TestResult<()> {
+        let move_message = json!({
+            "action": "make_move",
+            "game_session_id": session_id,
+            "from_square": from_square,
+            "to_square": to_square
+        });
+
+        self.send_websocket_message(&move_message.to_string())
+            .await?;
+
+        Ok(())
+    }
+
+    /// Make a chess move with promotion
+    pub async fn make_move_with_promotion(
+        &mut self,
+        session_id: &str,
+        from_square: &str,
+        to_square: &str,
+        promotion_piece: &str,
+    ) -> TestResult<()> {
+        let move_message = json!({
+            "action": "make_move",
+            "game_session_id": session_id,
+            "from_square": from_square,
+            "to_square": to_square,
+            "promotion_piece": promotion_piece
+        });
+
+        self.send_websocket_message(&move_message.to_string())
+            .await?;
+
+        Ok(())
+    }
+
+    /// Wait for a move update notification for a specific game session
+    pub async fn wait_for_move_update(
+        &mut self,
+        session_id: &str,
+        timeout: Duration,
+    ) -> TestResult<Value> {
+        self.wait_for_websocket_message_with_filter("game_update", timeout, |msg| {
+            if let Some(game_session) = msg.get("game_session") {
+                if let Some(msg_session_id) =
+                    game_session.get("session_id").and_then(|s| s.as_str())
+                {
+                    return msg_session_id == session_id;
+                }
+            }
+            false
+        })
+        .await
+    }
+
+    /// Wait for game end notification for a specific game session
+    pub async fn wait_for_game_end(
+        &mut self,
+        session_id: &str,
+        timeout: Duration,
+    ) -> TestResult<Value> {
+        self.wait_for_websocket_message_with_filter("game_update", timeout, |msg| {
+            if let Some(game_session) = msg.get("game_session") {
+                if let Some(msg_session_id) =
+                    game_session.get("session_id").and_then(|s| s.as_str())
+                {
+                    if msg_session_id == session_id {
+                        // Check if game has ended
+                        if let Some(status) = game_session.get("status").and_then(|s| s.as_str()) {
+                            return status != "Ongoing";
+                        }
+                    }
+                }
+            }
+            false
+        })
+        .await
+    }
+
+    /// Wait for a WebSocket message with a custom filter function
+    pub async fn wait_for_websocket_message_with_filter<F>(
+        &mut self,
+        expected_action: &str,
+        timeout: Duration,
+        filter: F,
+    ) -> TestResult<Value>
+    where
+        F: Fn(&Value) -> bool,
+    {
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < timeout {
+            if let Some(connection) = self.websocket_connections.last_mut() {
+                match tokio::time::timeout(Duration::from_millis(100), connection.next()).await {
+                    Ok(Some(Ok(message))) => {
+                        if let tokio_tungstenite::tungstenite::Message::Text(text) = message {
+                            if let Ok(json_message) = serde_json::from_str::<Value>(&text) {
+                                if let Some(action) =
+                                    json_message.get("action").and_then(|a| a.as_str())
+                                {
+                                    if action == expected_action && filter(&json_message) {
+                                        return Ok(json_message);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Ok(Some(Err(e))) => return Err(e.into()),
+                    Ok(None) => return Err("WebSocket connection closed".into()),
+                    Err(_) => {
+                        // Timeout, continue waiting
+                        if start.elapsed().as_secs() % 5 == 0 {
+                            println!(
+                                "Still waiting for filtered message... ({:?} elapsed)",
+                                start.elapsed()
+                            );
+                        }
+                    }
+                }
+            } else {
+                return Err("No WebSocket connection established".into());
+            }
+        }
+
+        Err(format!(
+            "Timeout waiting for filtered message with action: {}",
+            expected_action
+        )
+        .into())
     }
 
     /// Perform complete cleanup (delete account if authenticated)

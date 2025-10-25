@@ -15,6 +15,7 @@ serde_dynamo = { workspace = true }
 tracing = { workspace = true }
 rand = { workspace = true }
 jsonwebtoken = { workspace = true }
+chess = "3.2.0"
 
 [dev-dependencies]
 tokio = { version = "1.47.1", features = ["full", "rt-multi-thread", "macros"] }

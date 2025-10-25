@@ -1,8 +1,81 @@
 mod e2e_tests_internal;
 
+use e2e_tests_internal::scenarios::TestCategory;
 pub use e2e_tests_internal::{
     run_e2e_tests_by_category, E2EConfig, TestClient, TestResult, TestTimer, TestUser,
 };
+
+/// Complete chess game test from start to finish
+#[tokio::test]
+async fn run_complete_chess_game() {
+    e2e_tests_internal::scenarios::game::test_complete_chess_game()
+        .await
+        .expect("Complete chess game test failed");
+}
+
+/// Invalid move handling test
+#[tokio::test]
+async fn run_invalid_move_handling() {
+    e2e_tests_internal::scenarios::game::test_invalid_move_handling()
+        .await
+        .expect("Invalid move handling test failed");
+}
+
+/// Pawn promotion test
+#[tokio::test]
+async fn run_pawn_promotion() {
+    e2e_tests_internal::scenarios::game::test_pawn_promotion()
+        .await
+        .expect("Pawn promotion test failed");
+}
+
+/// Stalemate detection test
+#[tokio::test]
+async fn run_stalemate_detection() {
+    e2e_tests_internal::scenarios::game::test_stalemate_detection()
+        .await
+        .expect("Stalemate detection test failed");
+}
+
+/// Concurrent games test
+#[tokio::test]
+async fn run_concurrent_games() {
+    e2e_tests_internal::scenarios::game::test_concurrent_games()
+        .await
+        .expect("Concurrent games test failed");
+}
+
+/// Game abandonment test (placeholder)
+#[tokio::test]
+async fn run_game_abandonment() {
+    e2e_tests_internal::scenarios::game::test_game_abandonment()
+        .await
+        .expect("Game abandonment test failed");
+}
+
+/// Time controls test (placeholder)
+#[tokio::test]
+async fn run_time_controls() {
+    e2e_tests_internal::scenarios::game::test_time_controls()
+        .await
+        .expect("Time controls test failed");
+}
+
+/// Draw agreement test (placeholder)
+#[tokio::test]
+async fn run_draw_agreement() {
+    e2e_tests_internal::scenarios::game::test_draw_agreement()
+        .await
+        .expect("Draw agreement test failed");
+}
+
+/// Run all tests in game category
+#[tokio::test]
+async fn run_game_category_tests() {
+    run_e2e_tests_by_category(TestCategory::Game)
+        .await
+        .expect("Game category tests failed");
+}
 
 #[cfg(test)]
 mod tests {

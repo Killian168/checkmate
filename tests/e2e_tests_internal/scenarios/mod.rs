@@ -1,4 +1,5 @@
 pub mod authentication;
+pub mod game;
 pub mod queue;
 pub mod websocket;
 
@@ -10,6 +11,8 @@ pub enum TestCategory {
     Queue,
     /// WebSocket connection and messaging tests
     WebSocket,
+    /// Chess game functionality tests
+    Game,
 }
 
 impl TestCategory {
@@ -40,6 +43,16 @@ impl TestCategory {
                 "test_websocket_connection_timeout",
                 "test_websocket_invalid_credentials",
                 "test_concurrent_websocket_connections",
+            ],
+            TestCategory::Game => vec![
+                "test_complete_chess_game",
+                "test_invalid_move_handling",
+                "test_pawn_promotion",
+                "test_stalemate_detection",
+                "test_concurrent_games",
+                "test_game_abandonment",
+                "test_time_controls",
+                "test_draw_agreement",
             ],
         }
     }

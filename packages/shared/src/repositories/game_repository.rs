@@ -27,6 +27,11 @@ pub trait GameSessionRepository: Send + Sync {
         &self,
         session_id: &str,
     ) -> Result<Option<GameSession>, GameSessionRepositoryError>;
+
+    async fn update_game_session(
+        &self,
+        game_session: &GameSession,
+    ) -> Result<(), GameSessionRepositoryError>;
 }
 
 #[async_trait]
@@ -75,5 +80,26 @@ impl GameSessionRepository for DynamoDbGameSessionRepository {
         } else {
             Ok(None)
         }
+    }
+
+    async fn update_game_session(
+        &self,
+        game_session: &GameSession,
+    ) -> Result<(), GameSessionRepositoryError> {
+        let item = serde_dynamo::to_item(game_session)
+            .map_err(|e| GameSessionRepositoryError::Serialization(e.to_string()))?;
+
+        let request = self
+            .client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item));
+
+        request
+            .send()
+            .await
+            .map_err(|e| GameSessionRepositoryError::DynamoDb(e.to_string()))?;
+
+        Ok(())
     }
 }
