@@ -6,6 +6,7 @@ use crate::state::AppState;
 
 pub async fn handle_make_move(
     _event: &ApiGatewayWebsocketProxyRequest,
+    _connection_id: &str,
     _state: AppState,
 ) -> Result<Value, Error> {
     // Temporarily bypass all complex logic for testing WebSocket infrastructure

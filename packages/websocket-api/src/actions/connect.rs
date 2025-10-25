@@ -1,15 +1,18 @@
-use aws_lambda_events::apigw::ApiGatewayWebsocketProxyRequest;
 use lambda_runtime::Error;
 use serde_json::{json, Value};
 
 use crate::state::AppState;
 
 pub async fn handle_connect(
-    _event: &ApiGatewayWebsocketProxyRequest,
-    _state: AppState,
+    user_id: &str,
+    connection_id: &str,
+    state: AppState,
 ) -> Result<Value, Error> {
-    // Temporarily bypass all authentication and storage for testing
-    // TODO: Restore proper WebSocket connection logic
+    state
+        .websocket_service
+        .store_connection(user_id, connection_id)
+        .await
+        .map_err(Error::from)?;
 
     Ok(json!({
         "statusCode": 200,

@@ -5,9 +5,13 @@ use std::env::set_var;
 use std::sync::Arc;
 
 pub mod actions;
+pub mod error;
 pub mod state;
 
+use crate::error::ApiError;
 use shared::repositories::websocket_repository::DynamoDbWebSocketRepository;
+use shared::services::auth_service::AuthServiceTrait;
+use shared::services::errors::auth_service_errors::AuthServiceError;
 use shared::services::game_session_service::GameSessionService;
 use shared::services::websocket_service::WebSocketService;
 
@@ -15,6 +19,7 @@ use crate::actions::connect::handle_connect;
 use crate::actions::default::handle_default_message;
 use crate::actions::disconnect::handle_disconnect;
 use crate::actions::make_move::handle_make_move;
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -68,9 +73,14 @@ async fn main() -> Result<(), Error> {
 
 async fn websocket_handler(
     event: LambdaEvent<ApiGatewayWebsocketProxyRequest>,
-    state: state::AppState,
+    state: AppState,
 ) -> Result<Value, Error> {
     let websocket_event = event.payload;
+    let connection_id = websocket_event
+        .request_context
+        .connection_id
+        .as_ref()
+        .ok_or_else(|| Error::from("Connection ID not found"))?;
     let route_key = websocket_event
         .request_context
         .route_key
@@ -78,13 +88,57 @@ async fn websocket_handler(
         .unwrap_or("");
 
     match route_key {
-        "$connect" => handle_connect(&websocket_event, state).await,
-        "$disconnect" => handle_disconnect(&websocket_event, state).await,
-        "$default" => handle_default_message(&websocket_event, state).await,
-        "make_move" => handle_make_move(&websocket_event, state).await,
+        "$connect" => {
+            // Authenticate the user
+            let user_id = match authenticate_user(&websocket_event, state.clone()).await {
+                Ok(id) => id,
+                Err(e) => {
+                    return Ok(json!({
+                        "statusCode": 401,
+                        "body": json!({"error": format!("{}", e)}).to_string()
+                    }));
+                }
+            };
+            handle_connect(&user_id, connection_id, state).await
+        }
+        "$disconnect" => handle_disconnect(connection_id, state).await,
+        "$default" => handle_default_message(connection_id, state).await,
+        "make_move" => handle_make_move(&websocket_event, connection_id, state).await,
         _ => Ok(json!({
             "statusCode": 400,
             "body": json!({"error": "Unknown route"}).to_string()
         })),
     }
+}
+
+async fn authenticate_user(
+    event: &ApiGatewayWebsocketProxyRequest,
+    state: AppState,
+) -> Result<String, ApiError> {
+    let auth_header = event
+        .headers
+        .get("Authorization")
+        .ok_or_else(|| ApiError::AuthService(AuthServiceError::InvalidCredentials))?
+        .to_str()
+        .map_err(|_| {
+            ApiError::AuthService(AuthServiceError::ValidationError(
+                "Invalid header format".to_string(),
+            ))
+        })?;
+
+    // Check if it starts with "Bearer "
+    if !auth_header.starts_with("Bearer ") {
+        return Err(ApiError::AuthService(AuthServiceError::InvalidCredentials));
+    }
+
+    // Extract the token (remove "Bearer " prefix)
+    let token = &auth_header[7..];
+
+    // Verify JWT and extract user ID
+    let user_id = state
+        .auth_service
+        .extract_user_id_from_token(token)
+        .map_err(|e| ApiError::from(e))?;
+
+    Ok(user_id)
 }
