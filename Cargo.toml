@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "packages/api",
     "packages/game-session-notifier",
     "packages/queue-processor",
     "packages/shared",

@@ -8,14 +8,21 @@ pub mod actions;
 pub mod error;
 pub mod state;
 
+use shared::repositories::game_repository::DynamoDbGameSessionRepository;
+use shared::repositories::queue_repository::DynamoDbQueueRepository;
+use shared::repositories::user_repository::DynamoDbUserRepository;
 use shared::repositories::websocket_repository::DynamoDbWebSocketRepository;
 
 use shared::services::game_session_service::GameSessionService;
+use shared::services::queue_service::QueueService;
+use shared::services::user_service::UserService;
 use shared::services::websocket_service::WebSocketService;
 
 use crate::actions::connect::handle_connect;
 use crate::actions::default::handle_default_message;
 use crate::actions::disconnect::handle_disconnect;
+use crate::actions::join_queue::handle_join_queue;
+use crate::actions::leave_queue::handle_leave_queue;
 use crate::actions::make_move::handle_make_move;
 use crate::state::AppState;
 
@@ -39,6 +46,15 @@ async fn main() -> Result<(), Error> {
         user_repository,
     ));
 
+    let queue_repository = Arc::new(
+        shared::repositories::queue_repository::DynamoDbQueueRepository::new(
+            dynamodb_client.clone(),
+        ),
+    );
+    let queue_service = Arc::new(shared::services::queue_service::QueueService::new(
+        queue_repository,
+    ));
+
     let websocket_repository = Arc::new(DynamoDbWebSocketRepository::new(
         dynamodb_client.clone(),
         aws_sdk_apigatewaymanagement::Client::new(&config),
@@ -55,6 +71,7 @@ async fn main() -> Result<(), Error> {
     let app_state = state::AppState {
         websocket_service,
         user_service,
+        queue_service,
         game_session_service,
     };
 
@@ -104,6 +121,8 @@ async fn websocket_handler(
         "$connect" => handle_connect(claims, connection_id, state).await,
         "$disconnect" => handle_disconnect(connection_id, state).await,
         "$default" => handle_default_message(connection_id, state).await,
+        "join_queue" => handle_join_queue(&websocket_event, &user_id, state).await,
+        "leave_queue" => handle_leave_queue(&websocket_event, &user_id, state).await,
         "make_move" => handle_make_move(&websocket_event, &user_id, state).await,
         _ => Ok(json!({
             "statusCode": 400,

@@ -8,14 +8,6 @@ provider:
   memorySize: 128
   architecture: arm64
   runtime: provided.al2023
-  httpApi:
-    cors: true
-    authorizers:
-      cognitoAuthorizer:
-        type: jwt
-        identitySource: $request.header.Authorization
-        issuerUrl: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
-        audience: !Ref UserPoolClient
   iam:
     role:
       statements: # ToDo: Tighten this up
@@ -33,28 +25,6 @@ package:
   individually: true
 
 functions:
-  api:
-    name: ${self:service}-${sls:stage}-api
-    handler: api
-    package:
-      artifact: target/lambda/api/api.zip
-    events:
-      - httpApi:
-          path: /health
-          method: GET
-      - httpApi:
-          path: /queue/join
-          method: POST
-          authorizer: cognitoAuthorizer
-      - httpApi:
-          path: /queue/leave
-          method: POST
-          authorizer: cognitoAuthorizer
-    reservedConcurrency: 20
-    environment:
-      USERS_TABLE: !Ref UsersTable
-      QUEUE_TABLE: !Ref QueueTable
-
   queue-processor:
     name: ${self:service}-${sls:stage}-queue-processor
     handler: queue-processor
@@ -86,9 +56,16 @@ functions:
       - websocket:
           route: $default
       - websocket:
+          route: join_queue
+      - websocket:
+          route: leave_queue
+      - websocket:
           route: make_move
     environment:
       PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
+      USERS_TABLE: !Ref UsersTable
+      QUEUE_TABLE: !Ref QueueTable
+      GAME_SESSIONS_TABLE: !Ref GameSessionsTable
 
   game-session-notifier:
     name: ${self:service}-${sls:stage}-game-session-notifier
