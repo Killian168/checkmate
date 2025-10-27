@@ -1,2 +1,1 @@
-pub mod requests;
-pub mod responses;
+// Auth models removed - authentication now handled by Cognito

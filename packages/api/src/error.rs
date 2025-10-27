@@ -13,6 +13,7 @@ pub enum ApiError {
     AuthService(AuthServiceError),
     QueueService(QueueServiceError),
     GameSessionService(GameSessionServiceError),
+    Unauthorized,
 }
 
 impl From<UserServiceError> for ApiError {
@@ -60,6 +61,8 @@ impl IntoResponse for ApiError {
             ApiError::AuthService(
                 AuthServiceError::InvalidToken | AuthServiceError::ExpiredToken,
             ) => StatusCode::UNAUTHORIZED,
+
+            ApiError::Unauthorized => StatusCode::UNAUTHORIZED,
 
             ApiError::QueueService(QueueServiceError::ValidationError(_)) => {
                 StatusCode::BAD_REQUEST

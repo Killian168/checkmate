@@ -10,6 +10,12 @@ provider:
   runtime: provided.al2023
   httpApi:
     cors: true
+    authorizers:
+      cognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+        audience: !Ref UserPoolClient
   iam:
     role:
       statements: # ToDo: Tighten this up
@@ -37,22 +43,17 @@ functions:
           path: /health
           method: GET
       - httpApi:
-          path: /auth/user
-          method: ANY
-      - httpApi:
-          path: /auth/login
-          method: POST
-      - httpApi:
           path: /queue/join
           method: POST
+          authorizer: cognitoAuthorizer
       - httpApi:
           path: /queue/leave
           method: POST
+          authorizer: cognitoAuthorizer
     reservedConcurrency: 20
     environment:
       USERS_TABLE: !Ref UsersTable
       QUEUE_TABLE: !Ref QueueTable
-      JWT_SECRET: ThisIsMySecret # ToDo: Tighten this up
 
   queue-processor:
     name: ${self:service}-${sls:stage}-queue-processor
@@ -79,6 +80,7 @@ functions:
     events:
       - websocket:
           route: $connect
+          authorizer: cognitoAuthorizer
       - websocket:
           route: $disconnect
       - websocket:
@@ -87,7 +89,6 @@ functions:
           route: make_move
     environment:
       PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
-      JWT_SECRET: ThisIsMySecret # ToDo: Tighten this up
 
   game-session-notifier:
     name: ${self:service}-${sls:stage}-game-session-notifier
@@ -106,6 +107,36 @@ functions:
       GAME_SESSIONS_TABLE: !Ref GameSessionsTable
       PLAYER_CONNECTIONS_TABLE: !Ref PlayerConnectionsTable
 
+  user-signup:
+    name: ${self:service}-${sls:stage}-user-signup
+    handler: user-signup
+    package:
+      artifact: target/lambda/user-signup/user-signup.zip
+    events:
+      - cognitoUserPool:
+          pool: !Ref UserPool
+          trigger: PostConfirmation
+    environment:
+      USERS_TABLE: !Ref UsersTable
+
+  user-delete:
+    name: ${self:service}-${sls:stage}-user-delete
+    handler: user-delete
+    package:
+      artifact: target/lambda/user-delete/user-delete.zip
+    events:
+      - eventBridge:
+          pattern:
+            source:
+              - aws.cognito-idp
+            detail-type:
+              - User Deleted
+            detail:
+              userPoolId:
+                - !Ref UserPool
+    environment:
+      USERS_TABLE: !Ref UsersTable
+
 resources:
   Resources:
     UsersTable:
@@ -116,18 +147,9 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
-          - AttributeName: email
-            AttributeType: S
         KeySchema:
           - AttributeName: id
             KeyType: HASH
-        GlobalSecondaryIndexes:
-          - IndexName: GSI_UserByEmail
-            KeySchema:
-              - AttributeName: email
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
 
     QueueTable:
       Type: AWS::DynamoDB::Table
@@ -198,3 +220,33 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-${sls:stage}-user-pool
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+        AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
+          - email
+
+    UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref UserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+  Outputs:
+    UserPoolId:
+      Value: !Ref UserPool
+      Export:
+        Name: ${self:service}-${sls:stage}-UserPoolId
+    UserPoolClientId:
+      Value: !Ref UserPoolClient
+      Export:
+        Name: ${self:service}-${sls:stage}-UserPoolClientId

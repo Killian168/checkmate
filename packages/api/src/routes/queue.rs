@@ -15,7 +15,7 @@ async fn join_queue(
     authenticated_user: AuthenticatedUser,
     Json(payload): Json<JoinQueueRequest>,
 ) -> Result<StatusCode, ApiError> {
-    let player_id = authenticated_user.user_id.to_string();
+    let player_id = authenticated_user.user_id.clone();
 
     // Get the user to access their rating
     let user = state

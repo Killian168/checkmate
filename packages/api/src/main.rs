@@ -11,7 +11,6 @@ pub mod state;
 
 use shared::repositories::queue_repository::DynamoDbQueueRepository;
 use shared::repositories::user_repository::DynamoDbUserRepository;
-use shared::services::auth_service::AuthService;
 use shared::services::queue_service::QueueService;
 use shared::services::user_service::UserService;
 
@@ -28,14 +27,12 @@ async fn main() -> Result<(), Error> {
 
     let user_repository = Arc::new(DynamoDbUserRepository::new(client.clone()));
     let user_service = Arc::new(UserService::new(user_repository));
-    let auth_service = Arc::new(AuthService::new(user_service.clone()));
 
     let queue_repository = Arc::new(DynamoDbQueueRepository::new(client.clone()));
     let queue_service = Arc::new(QueueService::new(queue_repository));
 
     let app_state = state::AppState {
         user_service,
-        auth_service,
         queue_service,
     };
 
@@ -49,7 +46,7 @@ async fn main() -> Result<(), Error> {
     // Merge routes
     let app = Router::new()
         .route("/health", get(routes::health::health_check))
-        .merge(routes::auth::routes())
+        .merge(routes::user::routes())
         .merge(routes::queue::routes())
         .layer(cors)
         .with_state(app_state);

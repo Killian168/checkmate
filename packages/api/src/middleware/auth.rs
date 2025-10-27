@@ -1,12 +1,14 @@
 use axum::{extract::FromRequestParts, http::request::Parts};
+use lambda_http::request::RequestContext;
 
 use crate::{error::ApiError, state::AppState};
-use shared::services::auth_service::AuthServiceTrait;
-use shared::services::errors::auth_service_errors::AuthServiceError;
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
     pub user_id: String,
+    pub email: String,
+    pub first_name: String,
+    pub last_name: String,
 }
 
 impl FromRequestParts<AppState> for AuthenticatedUser {
@@ -14,34 +16,49 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState,
+        _state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        // Extract Authorization header
-        let auth_header = parts
-            .headers
-            .get("Authorization")
-            .ok_or_else(|| ApiError::AuthService(AuthServiceError::InvalidCredentials))?
-            .to_str()
-            .map_err(|_| {
-                ApiError::AuthService(AuthServiceError::ValidationError(
-                    "Invalid header format".to_string(),
-                ))
-            })?;
+        // Extract RequestContext from extensions
+        let request_context = parts
+            .extensions
+            .get::<RequestContext>()
+            .ok_or_else(|| ApiError::Unauthorized)?;
 
-        // Check if it starts with "Bearer "
-        if !auth_header.starts_with("Bearer ") {
-            return Err(ApiError::AuthService(AuthServiceError::InvalidCredentials));
-        }
+        // Extract authorizer claims
+        let authorizer_result = request_context.authorizer();
+        let authorizer = authorizer_result
+            .as_ref()
+            .ok_or_else(|| ApiError::Unauthorized)?;
 
-        // Extract the token (remove "Bearer " prefix)
-        let token = &auth_header[7..];
+        let jwt = authorizer
+            .jwt
+            .as_ref()
+            .ok_or_else(|| ApiError::Unauthorized)?;
 
-        // Verify JWT and extract user ID
-        let user_id = state
-            .auth_service
-            .extract_user_id_from_token(token)
-            .map_err(|e| ApiError::from(e))?;
+        let claims = &jwt.claims;
 
-        Ok(AuthenticatedUser { user_id })
+        let sub = claims.get("sub").ok_or_else(|| ApiError::Unauthorized)?;
+
+        let email = claims
+            .get("email")
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        let first_name = claims
+            .get("given_name")
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        let last_name = claims
+            .get("family_name")
+            .cloned()
+            .unwrap_or_else(|| "".to_string());
+
+        Ok(AuthenticatedUser {
+            user_id: sub.to_string(),
+            email,
+            first_name,
+            last_name,
+        })
     }
 }

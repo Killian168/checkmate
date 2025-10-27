@@ -21,10 +21,9 @@ impl DynamoDbUserRepository {
 pub trait UserRepository: Send + Sync {
     async fn create_user(&self, user: &User) -> Result<(), UserRepositoryError>;
     async fn get_user_by_id(&self, user_id: &str) -> Result<User, UserRepositoryError>;
-    async fn get_user_by_email(&self, email: &str) -> Result<User, UserRepositoryError>;
+
     async fn update_user(&self, user: &User) -> Result<(), UserRepositoryError>;
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepositoryError>;
-    async fn email_exists(&self, email: &str) -> Result<bool, UserRepositoryError>;
 }
 
 #[async_trait]
@@ -63,46 +62,6 @@ impl UserRepository for DynamoDbUserRepository {
         }
     }
 
-    async fn get_user_by_email(&self, email: &str) -> Result<User, UserRepositoryError> {
-        let result = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name("GSI_UserByEmail")
-            .key_condition_expression("email = :email")
-            .expression_attribute_values(
-                ":email",
-                to_attribute_value(email)
-                    .map_err(|e| UserRepositoryError::Serialization(e.to_string()))?,
-            )
-            .send()
-            .await;
-        match result {
-            Ok(output) => {
-                if let Some(items) = output.items {
-                    if let Some(item) = items.into_iter().next() {
-                        let user = from_item(item)
-                            .map_err(|e| UserRepositoryError::Serialization(e.to_string()))?;
-                        Ok(user)
-                    } else {
-                        Err(UserRepositoryError::NotFound)
-                    }
-                } else {
-                    Err(UserRepositoryError::NotFound)
-                }
-            }
-            Err(e) => {
-                let error_str = e.to_string();
-                if error_str.contains("ResourceNotFoundException")
-                    || error_str.contains("ValidationException")
-                {
-                    return Err(UserRepositoryError::DynamoDb("User email index not available. Please ensure the GSI 'GSI_UserByEmail' exists and is active.".to_string()));
-                }
-                Err(UserRepositoryError::DynamoDb(error_str))
-            }
-        }
-    }
-
     async fn update_user(&self, user: &User) -> Result<(), UserRepositoryError> {
         let item = to_item(user).map_err(|e| UserRepositoryError::Serialization(e.to_string()))?;
         self.client
@@ -134,42 +93,6 @@ impl UserRepository for DynamoDbUserRepository {
                 let error_str = e.to_string();
                 if error_str.contains("ConditionalCheckFailedException") {
                     Err(UserRepositoryError::NotFound)
-                } else {
-                    Err(UserRepositoryError::DynamoDb(error_str))
-                }
-            }
-        }
-    }
-
-    async fn email_exists(&self, email: &str) -> Result<bool, UserRepositoryError> {
-        let result = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name("GSI_UserByEmail")
-            .key_condition_expression("email = :email")
-            .expression_attribute_values(
-                ":email",
-                to_attribute_value(email)
-                    .map_err(|e| UserRepositoryError::Serialization(e.to_string()))?,
-            )
-            .limit(1)
-            .send()
-            .await;
-        match result {
-            Ok(output) => {
-                let exists = output
-                    .items
-                    .as_ref()
-                    .map_or(false, |items| !items.is_empty());
-                Ok(exists)
-            }
-            Err(e) => {
-                let error_str = e.to_string();
-                if error_str.contains("ResourceNotFoundException")
-                    || error_str.contains("ValidationException")
-                {
-                    Ok(false)
                 } else {
                     Err(UserRepositoryError::DynamoDb(error_str))
                 }

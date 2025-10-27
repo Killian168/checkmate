@@ -4,10 +4,15 @@ use serde_json::{json, Value};
 use crate::state::AppState;
 
 pub async fn handle_connect(
-    user_id: &str,
+    claims: &serde_json::Map<String, Value>,
     connection_id: &str,
     state: AppState,
 ) -> Result<Value, Error> {
+    let user_id = claims
+        .get("sub")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::from("No sub in claims"))?;
+
     state
         .websocket_service
         .store_connection(user_id, connection_id)
