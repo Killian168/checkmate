@@ -1,0 +1,28 @@
+service: frontend
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  environment:
+    NEXT_PUBLIC_API_URL: ${env:NEXT_PUBLIC_API_URL, 'https://api.example.com'}
+    NEXT_PUBLIC_WS_URL: ${env:NEXT_PUBLIC_WS_URL, 'wss://ws.example.com'}
+    NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${env:NEXT_PUBLIC_COGNITO_USER_POOL_ID}
+    NEXT_PUBLIC_COGNITO_CLIENT_ID: ${env:NEXT_PUBLIC_COGNITO_CLIENT_ID}
+
+plugins:
+  - serverless-nextjs-plugin
+
+custom:
+  nextjs:
+    build:
+      env:
+        - name: NEXT_PUBLIC_API_URL
+          value: ${self:provider.environment.NEXT_PUBLIC_API_URL}
+        - name: NEXT_PUBLIC_WS_URL
+          value: ${self:provider.environment.NEXT_PUBLIC_WS_URL}
+        - name: NEXT_PUBLIC_COGNITO_USER_POOL_ID
+          value: ${self:provider.environment.NEXT_PUBLIC_COGNITO_USER_POOL_ID}
+        - name: NEXT_PUBLIC_COGNITO_CLIENT_ID
+          value: ${self:provider.environment.NEXT_PUBLIC_COGNITO_CLIENT_ID}
