@@ -9,6 +9,15 @@ provider:
   stage: ${opt:stage, 'dev'}
   memorySize: 128
   logRetentionInDays: 30
+  httpApi:
+    authorizers:
+      httpAuthorizer:
+        type: jwt
+        scopes: email
+        identitySource: $request.header.Authorization
+        issuerUrl: !Sub https://cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}
+        audience:
+          - !Ref CognitoUserPoolClient
 
 package:
   individually: true
@@ -24,3 +33,53 @@ functions:
       - httpApi:
           method: GET
           path: /health
+          authorizer:
+            name: httpAuthorizer
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-${self:provider.stage}-user-pool
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: true
+        UserAttributeUpdateSettings:
+          AttributesRequireVerificationBeforeUpdate:
+            - email
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Name: verified_email
+              Priority: 1
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:service}-${self:provider.stage}-client
+        UserPoolId: !Ref CognitoUserPool
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_USER_SRP_AUTH
+        PreventUserExistenceErrors: ENABLED
+        AccessTokenValidity: 1
+        IdTokenValidity: 1
+        RefreshTokenValidity: 30
+        TokenValidityUnits:
+          AccessToken: hours
+          IdToken: hours
+          RefreshToken: days

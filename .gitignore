@@ -8,3 +8,7 @@ target
 .serverless/
 volume/
 node_modules/
+
+# Environment files
+.env
+**/.env
