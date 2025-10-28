@@ -1,40 +1,24 @@
 [package]
-name = "api"
+name = "create_user"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "api"
-path = "src/lib.rs"
-
 [[bin]]
-name = "api-bootstrap"
+name = "create-user"
 path = "src/main.rs"
-
-
 
 [dependencies]
 # Lambda runtime
 lambda_runtime = "0.10"
-lambda_http = "0.10"
-
-# HTTP & Web
-axum = { version = "0.7", default-features = false, features = ["tokio", "http1", "http2", "json"] }
-tower = { version = "0.4", default-features = false }
-tower-http = { version = "0.5", default-features = false, features = ["trace", "cors"] }
-http = "1.0"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 # OnceCell for lazy initialization
 once_cell = "1.18"
+lazy_static = "1.4"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-jsonwebtoken = "9"
-base64 = "0.21"
-lazy_static = "1.4"
 
 # AWS SDK
 aws-config = "1.1"
@@ -45,9 +29,6 @@ serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 # Logging & observability
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-
-[dev-dependencies]
-# Testing utilities
 
 [profile.release]
 opt-level = "z"

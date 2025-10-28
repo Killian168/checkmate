@@ -26,15 +26,30 @@ package:
 
 functions:
   api:
-    handler: api
+    handler: api-bootstrap
     package:
-      artifact: target/lambda/api-bootstrap/bootstrap.zip
+      artifact: target/lambda/api-bootstrap/api.zip
     events:
       - httpApi:
           method: GET
           path: /health
-          authorizer:
-            name: httpAuthorizer
+
+  create-user:
+    handler: create-user
+    package:
+      artifact: target/lambda/create-user/create-user.zip
+    environment:
+      USERS_TABLE: !Ref UsersTable
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - cognitoUserPool:
+          pool: ${self:service}-${self:provider.stage}-user-pool
+          existing: true
+          trigger: PostConfirmation
 
 resources:
   Resources:
@@ -83,3 +98,15 @@ resources:
           AccessToken: hours
           IdToken: hours
           RefreshToken: days
+
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-users-table
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S

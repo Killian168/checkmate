@@ -128,7 +128,7 @@ pub async fn authenticate_with_cognito(email: &str, password: &str) -> Result<Au
 }
 
 pub async fn get_test_auth_token() -> String {
-    let email = "test@tester.com";
+    let email = "tester@test.com";
     let password = "ThisisATest123!";
 
     let tokens = authenticate_with_cognito(email, password)
