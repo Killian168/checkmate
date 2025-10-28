@@ -1,3 +1,4 @@
+use aws_config::BehaviorVersion;
 use aws_sdk_cognitoidentityprovider::Client as CognitoClient;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -21,7 +22,7 @@ fn get_cognito_client_id() -> String {
 /// Authenticate with AWS Cognito using username and password
 pub async fn authenticate_with_cognito(email: &str, password: &str) -> Result<AuthTokens, String> {
     // Create AWS SDK config
-    let config = aws_config::load_from_env().await;
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let client = CognitoClient::new(&config);
 
     let client_id = get_cognito_client_id();

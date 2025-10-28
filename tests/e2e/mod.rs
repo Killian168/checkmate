@@ -13,3 +13,4 @@ fn load_env() {
 
 pub mod cognito_auth;
 pub mod health_e2e;
+pub mod users_e2e;

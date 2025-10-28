@@ -2,22 +2,12 @@ use aws_config::BehaviorVersion;
 use aws_lambda_events::event::cognito::CognitoEventUserPoolsPostConfirmation;
 use aws_sdk_dynamodb::Client as DynamoClient;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use serde::Serialize;
+
+use shared::User;
 use tokio::sync::OnceCell as AsyncOnceCell;
 lazy_static::lazy_static! {
     static ref TABLE_NAME: String = std::env::var("USERS_TABLE")
         .expect("USERS_TABLE environment variable not set");
-}
-
-#[derive(Serialize)]
-struct User {
-    user_id: String,
-    email: String,
-    rating: i32,
-    games_played: i32,
-    games_won: i32,
-    games_lost: i32,
-    games_drew: i32,
 }
 
 static DYNAMO_CLIENT: AsyncOnceCell<DynamoClient> = AsyncOnceCell::const_new();
@@ -45,24 +35,12 @@ async fn function_handler(
         .ok_or("Missing sub in user attributes")?
         .clone();
 
-    let email = event_data
-        .request
-        .user_attributes
-        .get("email")
-        .ok_or("Missing email in user attributes")?
-        .clone();
-
     let dynamo_client = get_dynamo_client().await?;
 
     // Prepare user struct
     let user = User {
         user_id,
-        email,
         rating: 1200,
-        games_played: 0,
-        games_won: 0,
-        games_lost: 0,
-        games_drew: 0,
     };
 
     // Serialize to DynamoDB item

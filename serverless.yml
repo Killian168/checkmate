@@ -33,6 +33,17 @@ functions:
       - httpApi:
           method: GET
           path: /health
+      - httpApi:
+          method: GET
+          path: /users/me
+          authorizer: httpAuthorizer
+    environment:
+      USERS_TABLE: !Ref UsersTable
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
 
   create-user:
     handler: create-user

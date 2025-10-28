@@ -8,5 +8,6 @@ pub mod handlers;
 pub fn create_app() -> Router {
     Router::new()
         .route("/health", get(handlers::health::health_check))
+        .route("/users/me", get(handlers::users::get_me))
         .layer(ServiceBuilder::new().layer(TraceLayer::new_for_http()))
 }
