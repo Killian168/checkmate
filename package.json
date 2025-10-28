@@ -1,0 +1,17 @@
+{
+  "name": "checkmate",
+  "version": "1.0.0",
+  "description": "Chess.com-style serverless backend built with Rust and AWS",
+  "private": true,
+  "scripts": {
+    "build": "cargo lambda build --release --arm64 --output-format zip",
+    "deploy:dev": "npm run build && serverless deploy --stage dev",
+    "remove:dev": "serverless remove --stage dev",
+    "test": "cargo test"
+  },
+  "author": "Checkmate Team",
+  "license": "MIT",
+  "devDependencies": {
+    "serverless": "^4"
+  }
+}

@@ -1,0 +1,26 @@
+service: checkmate
+frameworkVersion: "4"
+
+provider:
+  name: aws
+  runtime: provided.al2023
+  architecture: arm64
+  region: eu-west-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 128
+  logRetentionInDays: 30
+
+package:
+  individually: true
+  patterns:
+    - "!./**"
+
+functions:
+  api:
+    handler: api
+    package:
+      artifact: target/lambda/api-bootstrap/bootstrap.zip
+    events:
+      - httpApi:
+          method: GET
+          path: /health
