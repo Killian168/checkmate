@@ -2,6 +2,7 @@ use aws_config::BehaviorVersion;
 use aws_lambda_events::event::cognito::CognitoEventUserPoolsPostConfirmation;
 use aws_sdk_dynamodb::Client as DynamoClient;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use serde_json;
 
 use shared::User;
 use tokio::sync::OnceCell as AsyncOnceCell;
@@ -24,7 +25,7 @@ async fn get_dynamo_client() -> Result<&'static DynamoClient, Error> {
 
 async fn function_handler(
     event: LambdaEvent<CognitoEventUserPoolsPostConfirmation>,
-) -> Result<(), Error> {
+) -> Result<serde_json::Value, Error> {
     let event_data = event.payload;
 
     // Extract user_id from sub
@@ -57,12 +58,13 @@ async fn function_handler(
     tracing::info!(
         "Successfully created user profile for {}",
         event_data
+            .clone()
             .cognito_event_user_pools_header
             .user_name
             .unwrap_or_else(|| "unknown".to_string())
     );
 
-    Ok(())
+    Ok(serde_json::to_value(event_data)?)
 }
 
 #[tokio::main]

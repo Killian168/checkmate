@@ -10,6 +10,7 @@ provider:
   memorySize: 128
   logRetentionInDays: 30
   httpApi:
+    cors: true
     authorizers:
       httpAuthorizer:
         type: jwt

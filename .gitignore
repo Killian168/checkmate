@@ -1,13 +1,14 @@
 debug
-target
 **/*.rs.bk
 *.pdb
 **/mutants.out*/
 .idea/
 .zed/
-.serverless/
-volume/
-node_modules/
+target/
+backend/.serverless/
+backend/volume/
+backend/node_modules/
+backend/target
 
 # Environment files
 .env
