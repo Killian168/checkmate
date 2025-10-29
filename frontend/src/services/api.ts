@@ -46,13 +46,35 @@ export async function getCurrentUser(): Promise<User> {
   }
 }
 
-export async function healthCheck(): Promise<{ status: string }> {
-  const response = await fetch(`${apiConfig.baseUrl}/health`);
-  if (!response.ok) {
+export async function deleteCurrentUser(): Promise<void> {
+  try {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.accessToken?.toString();
+
+    if (!token) {
+      throw new ApiError("No authentication token available");
+    }
+
+    const response = await fetch(`${apiConfig.baseUrl}/users/me`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new ApiError(
+        `API request failed: ${response.status} ${response.statusText}`,
+        response.status,
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
     throw new ApiError(
-      `Health check failed: ${response.status} ${response.statusText}`,
-      response.status,
+      `Failed to delete user: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
-  return await response.json();
 }

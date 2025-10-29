@@ -38,13 +38,23 @@ functions:
           method: GET
           path: /users/me
           authorizer: httpAuthorizer
+      - httpApi:
+          method: DELETE
+          path: /users/me
+          authorizer: httpAuthorizer
     environment:
       USERS_TABLE: !Ref UsersTable
+      COGNITO_USER_POOL_ID: !Ref CognitoUserPool
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:GetItem
+          - dynamodb:DeleteItem
         Resource: !GetAtt UsersTable.Arn
+      - Effect: Allow
+        Action:
+          - cognito-idp:AdminDeleteUser
+        Resource: !GetAtt CognitoUserPool.Arn
 
   create-user:
     handler: create-user

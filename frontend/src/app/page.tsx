@@ -2,12 +2,10 @@
 
 import { useAuth } from "../contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "../services/api";
+import { getCurrentUser, deleteCurrentUser } from "../services/api";
 import { User } from "../types/user";
 import { Authenticator } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
-import { awsConfig, apiConfig } from "../config/aws";
-import { Amplify } from "aws-amplify";
 import { amplifyConfigured } from "../config/amplify";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -34,6 +32,26 @@ export default function Home() {
         err instanceof Error ? err.message : "Failed to fetch user data",
       );
       console.error("Error fetching user data:", err);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete your account? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    try {
+      setApiLoading(true);
+      await deleteCurrentUser();
+      await signOut();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete user");
+      console.error("Error deleting user:", err);
     } finally {
       setApiLoading(false);
     }
@@ -169,12 +187,18 @@ export default function Home() {
                   </div>
                 ) : null}
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-4">
                 <button
                   onClick={signOut}
-                  className="bg-error hover:bg-error/80 text-primary-foreground font-bold py-2 px-4 rounded"
+                  className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-bold py-2 px-4 rounded"
                 >
                   Sign Out
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  className="bg-error hover:bg-error/80 text-primary-foreground font-bold py-2 px-4 rounded"
+                >
+                  Delete User
                 </button>
               </div>
             </div>

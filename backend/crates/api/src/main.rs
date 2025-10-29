@@ -12,7 +12,8 @@ async fn main() -> Result<(), Error> {
         .with(tracing_subscriber::fmt::layer().json())
         .init();
 
-    let app = api::create_app();
+    let state = api::AppState::new().await;
+    let app = api::create_app(state);
 
     run(app).await
 }

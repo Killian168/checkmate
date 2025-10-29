@@ -37,6 +37,7 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "aws-config",
+ "aws-sdk-cognitoidentityprovider",
  "aws-sdk-dynamodb",
  "aws_lambda_events",
  "axum",
@@ -2658,9 +2659,12 @@ dependencies = [
  "anyhow",
  "aws-config",
  "aws-sdk-cognitoidentityprovider",
+ "aws-sdk-dynamodb",
+ "base64 0.21.7",
  "dotenv",
  "reqwest",
  "serde",
+ "serde_dynamo",
  "serde_json",
  "shared",
  "tokio",

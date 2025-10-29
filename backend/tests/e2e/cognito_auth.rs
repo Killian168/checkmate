@@ -1,6 +1,7 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_cognitoidentityprovider::Client as CognitoClient;
 use serde::{Deserialize, Serialize};
+use serde_dynamo;
 use std::env;
 
 use super::load_env;
@@ -10,6 +11,13 @@ pub struct AuthTokens {
     pub id_token: String,
     pub access_token: String,
     pub refresh_token: String,
+}
+
+/// Get Cognito User Pool ID from environment
+fn get_cognito_user_pool_id() -> String {
+    load_env();
+    env::var("COGNITO_USER_POOL_ID")
+        .unwrap_or_else(|_| panic!("COGNITO_USER_POOL_ID environment variable not set."))
 }
 
 /// Get Cognito User Pool Client ID from environment
@@ -126,6 +134,88 @@ pub async fn authenticate_with_cognito(email: &str, password: &str) -> Result<Au
         access_token,
         refresh_token,
     })
+}
+
+/// Create a new Cognito user with verified email for testing
+pub async fn create_test_cognito_user(email: &str, temp_password: &str) -> Result<(), String> {
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    let client = CognitoClient::new(&config);
+
+    let user_pool_id = get_cognito_user_pool_id();
+
+    // Create the user
+    client
+        .admin_create_user()
+        .user_pool_id(&user_pool_id)
+        .username(email)
+        .user_attributes(
+            aws_sdk_cognitoidentityprovider::types::AttributeType::builder()
+                .name("email")
+                .value(email)
+                .build()
+                .expect("Failed to build email attribute"),
+        )
+        .user_attributes(
+            aws_sdk_cognitoidentityprovider::types::AttributeType::builder()
+                .name("email_verified")
+                .value("true")
+                .build()
+                .expect("Failed to build email_verified attribute"),
+        )
+        .temporary_password(temp_password)
+        .message_action(aws_sdk_cognitoidentityprovider::types::MessageActionType::Suppress)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to create Cognito user: {}", e))?;
+
+    Ok(())
+}
+
+/// Delete a Cognito user for testing cleanup
+pub async fn delete_cognito_user(email: &str) -> Result<(), String> {
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    let client = CognitoClient::new(&config);
+
+    let user_pool_id = get_cognito_user_pool_id();
+
+    // Delete the user
+    client
+        .admin_delete_user()
+        .user_pool_id(&user_pool_id)
+        .username(email)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to delete Cognito user: {}", e))?;
+
+    Ok(())
+}
+
+/// Create a DynamoDB user entry for testing
+pub async fn create_test_dynamodb_user(user_id: &str) -> Result<(), String> {
+    let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+    let client = aws_sdk_dynamodb::Client::new(&config);
+
+    let table_name =
+        std::env::var("USERS_TABLE").unwrap_or_else(|_| "checkmate-dev-users-table".to_string());
+
+    // Prepare user struct
+    let user = shared::User {
+        user_id: user_id.to_string(),
+        rating: 1200,
+    };
+
+    // Serialize to DynamoDB item
+    let item = serde_dynamo::to_item(user).map_err(|e| format!("Serialization error: {:?}", e))?;
+
+    client
+        .put_item()
+        .table_name(&table_name)
+        .set_item(Some(item))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to put item in DynamoDB: {:?}", e))?;
+
+    Ok(())
 }
 
 pub async fn get_test_auth_token() -> String {

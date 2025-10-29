@@ -1,45 +1,19 @@
 use crate::auth::AuthenticatedUser;
-use aws_config::BehaviorVersion;
-use aws_sdk_dynamodb::{types::AttributeValue, Client as DynamoClient};
-use axum::{http::StatusCode, Json};
-use lambda_http::Error;
+use aws_sdk_dynamodb::types::AttributeValue;
+use axum::{extract::Extension, http::StatusCode, Json};
 use shared::User;
-use tokio::sync::OnceCell as AsyncOnceCell;
 
-lazy_static::lazy_static! {
-    static ref TABLE_NAME: String = std::env::var("USERS_TABLE")
-        .unwrap_or_else(|_| "checkmate-dev-users-table".to_string());
-}
+use crate::AppState;
 
-static DYNAMO_CLIENT: AsyncOnceCell<DynamoClient> = AsyncOnceCell::const_new();
-
-async fn get_dynamo_client() -> Result<&'static DynamoClient, Error> {
-    DYNAMO_CLIENT
-        .get_or_init(|| async {
-            let config = aws_config::defaults(BehaviorVersion::latest()).load().await;
-            DynamoClient::new(&config)
-        })
-        .await;
-    Ok(DYNAMO_CLIENT.get().unwrap())
-}
-
-#[tracing::instrument(skip(auth_user))]
+#[tracing::instrument(skip(auth_user, state))]
 pub async fn get_me(
     auth_user: AuthenticatedUser,
+    Extension(state): Extension<AppState>,
 ) -> Result<Json<User>, (StatusCode, Json<serde_json::Value>)> {
-    let dynamo_client = match get_dynamo_client().await {
-        Ok(client) => client,
-        Err(e) => {
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({"error": e.to_string()})),
-            ))
-        }
-    };
-
-    let response = match dynamo_client
+    let response = match state
+        .dynamo_client
         .get_item()
-        .table_name(TABLE_NAME.as_str())
+        .table_name(&state.users_table)
         .key("user_id", AttributeValue::S(auth_user.claims.sub.clone()))
         .send()
         .await
@@ -72,43 +46,61 @@ pub async fn get_me(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::auth::{AuthenticatedUser, Claims};
-
-    #[test]
-    fn test_get_me_function_compiles() {
-        // This test ensures the function compiles and types check
-        // For real testing, we'd need to mock DynamoDB
+#[tracing::instrument(skip(auth_user, state))]
+pub async fn delete_me(
+    auth_user: AuthenticatedUser,
+    Extension(state): Extension<AppState>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    // Delete from DynamoDB first
+    if let Err(e) = state
+        .dynamo_client
+        .delete_item()
+        .table_name(&state.users_table)
+        .key("user_id", AttributeValue::S(auth_user.claims.sub.clone()))
+        .send()
+        .await
+    {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                serde_json::json!({"error": format!("Failed to delete user from DynamoDB: {:?}", e)}),
+            ),
+        ));
     }
 
-    #[test]
-    fn test_authenticated_user_creation() {
-        // Test that AuthenticatedUser can be created with valid claims
-        let claims = Claims {
-            sub: "test-sub".to_string(),
-            email: Some("test@example.com".to_string()),
-            cognito_username: Some("testuser".to_string()),
-            exp: 1672531200,
-            iat: 1672444800,
-            token_use: Some("id".to_string()),
-            email_verified: Some(true),
-            iss: Some("https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_TEST".to_string()),
-            aud: Some("test-aud".to_string()),
-            event_id: None,
-            auth_time: Some(1672444800),
-            jti: None,
-        };
-        let auth_user = AuthenticatedUser { claims };
-        assert_eq!(auth_user.claims.sub, "test-sub");
-        assert_eq!(auth_user.claims.email, Some("test@example.com".to_string()));
+    // Delete from Cognito
+    // Try multiple username options in case cognito_username is not set correctly
+    let username_options = vec![
+        auth_user.claims.cognito_username.as_deref(),
+        Some(&auth_user.claims.sub),
+        auth_user.claims.email.as_deref(),
+    ];
+
+    let mut last_error = None;
+    for username_opt in username_options.into_iter().flatten() {
+        match state
+            .cognito_client
+            .admin_delete_user()
+            .user_pool_id(&state.cognito_user_pool_id)
+            .username(username_opt)
+            .send()
+            .await
+        {
+            Ok(_) => {
+                return Ok(StatusCode::NO_CONTENT);
+            }
+            Err(e) => {
+                last_error = Some(e);
+            }
+        }
     }
 
-    #[test]
-    fn test_table_name_env_var() {
-        // Test that TABLE_NAME uses env var or default
-        // Since it's lazy_static, we can't easily test, but ensure it's defined
-        assert!(!TABLE_NAME.is_empty());
-    }
+    // If all attempts failed, return the last error
+    let error = last_error.unwrap();
+    return Err((
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(
+            serde_json::json!({"error": format!("Failed to delete user from Cognito: {:?}", error)}),
+        ),
+    ));
 }
