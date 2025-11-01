@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 
 use super::cognito_auth::{
     authenticate_with_cognito, create_test_cognito_user, create_test_dynamodb_user,
-    delete_cognito_user, get_test_auth_token,
+    delete_cognito_user,
 };
 use super::load_env;
 
@@ -16,33 +16,70 @@ fn get_api_url() -> String {
     env::var("API_URL").unwrap_or_else(|_| panic!("API_URL environment variable not set."))
 }
 
-async fn create_authenticated_client() -> (Client, String) {
-    let client = Client::new();
-    let token = get_test_auth_token().await;
-    (client, token)
-}
-
 #[tokio::test]
 async fn e2e_users_me_endpoint_returns_user_data() {
     let api_url = get_api_url();
-    let (client, token) = create_authenticated_client().await;
+
+    // Generate unique email for test user
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let test_email = format!("test-users-me-{timestamp}@example.com");
+    let test_password = "TempPassword123!";
+
+    // Create a new Cognito user
+    create_test_cognito_user(&test_email, &test_password)
+        .await
+        .expect("Failed to create test Cognito user");
+
+    // Authenticate with the new user
+    let tokens = authenticate_with_cognito(&test_email, &test_password)
+        .await
+        .expect("Failed to authenticate with test user");
+
+    // Decode the JWT to extract the user_id (sub)
+    let jwt_parts: Vec<&str> = tokens.id_token.split('.').collect();
+    assert_eq!(jwt_parts.len(), 3, "Invalid JWT format");
+    let payload = general_purpose::URL_SAFE_NO_PAD
+        .decode(jwt_parts[1])
+        .expect("Invalid JWT payload");
+    let claims: serde_json::Value = serde_json::from_slice(&payload).expect("Invalid claims JSON");
+    let user_id = claims["sub"]
+        .as_str()
+        .expect("Missing sub in JWT claims")
+        .to_string();
+
+    // Create DynamoDB entry for the user (PostConfirmation trigger should do this, but we do it explicitly for testing)
+    create_test_dynamodb_user(&user_id)
+        .await
+        .expect("Failed to create test DynamoDB user entry");
+
+    let client = Client::new();
 
     let response = client
         .get(format!("{}/users/me", api_url))
-        .header("Authorization", format!("Bearer {}", token))
+        .header("Authorization", format!("Bearer {}", tokens.id_token))
         .timeout(Duration::from_secs(30))
         .send()
         .await
         .expect("Failed to send request to /users/me endpoint");
 
     let status = response.status();
-    assert_eq!(status, 200);
+    let body = response.text().await.unwrap_or_default();
+    eprintln!("Response status: {}", status);
+    eprintln!("Response body: {}", body);
+    assert_eq!(
+        status, 200,
+        "Expected 200, got {} with body: {}",
+        status, body
+    );
 
-    let user: User = response
-        .json()
-        .await
-        .expect("Failed to parse response as User");
+    let user: User = serde_json::from_str(&body).expect("Failed to parse response as User");
     assert_eq!(user.rating, 1200);
+
+    // Clean up test user
+    let _ = delete_cognito_user(&test_email).await;
 }
 
 #[tokio::test]

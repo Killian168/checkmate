@@ -4,7 +4,7 @@
   "description": "Chess.com-style serverless backend built with Rust and AWS",
   "private": true,
   "scripts": {
-    "build": "cargo lambda build --release --arm64 --output-format zip && mv target/lambda/api-bootstrap/bootstrap.zip target/lambda/api-bootstrap/api.zip && mv target/lambda/create-user/bootstrap.zip target/lambda/create-user/create-user.zip",
+    "build": "cargo lambda build --release --arm64 --output-format zip && mv target/lambda/api-bootstrap/bootstrap.zip target/lambda/api-bootstrap/api.zip && mv target/lambda/create-user/bootstrap.zip target/lambda/create-user/create-user.zip && mv target/lambda/websocket-authorizer/bootstrap.zip target/lambda/websocket-authorizer/websocket-authorizer.zip && mv target/lambda/websocket-handler/bootstrap.zip target/lambda/websocket-handler/websocket-handler.zip",
     "deploy:dev": "npm run build && serverless deploy --stage dev",
     "remove:dev": "serverless remove --stage dev",
     "test": "cargo test"

@@ -4,6 +4,8 @@ members = [
     "crates/api",
     "crates/create_user",
     "crates/shared",
+    "crates/websocket_api",
+    "crates/websocket_authorizer",
     "tests"
 ]
 

@@ -8,7 +8,8 @@ provider:
   region: eu-west-1
   stage: ${opt:stage, 'dev'}
   memorySize: 128
-  logRetentionInDays: 30
+  tracing:
+    lambda: false
   httpApi:
     cors: true
     authorizers:
@@ -19,6 +20,7 @@ provider:
         issuerUrl: !Sub https://cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}
         audience:
           - !Ref CognitoUserPoolClient
+  websocketApiRouteSelectionExpression: $request.body.action
 
 package:
   individually: true
@@ -70,8 +72,63 @@ functions:
     events:
       - cognitoUserPool:
           pool: ${self:service}-${self:provider.stage}-user-pool
-          existing: true
           trigger: PostConfirmation
+
+  websocket-authorizer:
+    handler: websocket-authorizer
+    package:
+      artifact: target/lambda/websocket-authorizer/websocket-authorizer.zip
+    environment:
+      JWKS_URL: !Sub "https://cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}/.well-known/jwks.json"
+      COGNITO_USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+      ISSUER: !Sub "https://cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}"
+
+  websocket-handler:
+    handler: websocket-handler
+    package:
+      artifact: target/lambda/websocket-handler/websocket-handler.zip
+    environment:
+      QUEUE_TABLE: !Ref QueueTable
+      CONNECTIONS_TABLE: !Ref ConnectionsTable
+      USERS_TABLE: !Ref UsersTable
+      WEBSOCKET_API_ENDPOINT: !Sub "https://${WebsocketsApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}"
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+          - dynamodb:Query
+        Resource: !GetAtt QueueTable.Arn
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:GetItem
+          - dynamodb:DeleteItem
+        Resource: !GetAtt ConnectionsTable.Arn
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
+      - Effect: Allow
+        Action:
+          - execute-api:ManageConnections
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*
+    events:
+      - websocket:
+          route: $connect
+          authorizer:
+            name: websocket-authorizer
+            identitySource:
+              - route.request.header.Authorization
+      - websocket:
+          route: $disconnect
+      - websocket:
+          route: join_queue
+      - websocket:
+          route: leave_queue
+      - websocket:
+          route: $default
 
 resources:
   Resources:
@@ -131,4 +188,32 @@ resources:
             KeyType: HASH
         AttributeDefinitions:
           - AttributeName: user_id
+            AttributeType: S
+
+    QueueTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-queue-table
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: queue_key
+            KeyType: HASH
+          - AttributeName: user_id
+            KeyType: RANGE
+        AttributeDefinitions:
+          - AttributeName: queue_key
+            AttributeType: S
+          - AttributeName: user_id
+            AttributeType: S
+
+    ConnectionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-connections-table
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: connection_id
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: connection_id
             AttributeType: S
