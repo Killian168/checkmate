@@ -86,6 +86,8 @@ pub async fn join_queue(
         rating_bucket,
         rating,
         joined_at: now.clone(),
+        status: "waiting".to_string(),
+        matched_at: None,
         min_rating: msg.min_rating,
         max_rating: msg.max_rating,
     };

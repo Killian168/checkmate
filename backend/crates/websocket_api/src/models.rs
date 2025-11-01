@@ -28,6 +28,9 @@ pub struct QueueEntry {
     pub rating_bucket: String,
     pub rating: i32,
     pub joined_at: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matched_at: Option<String>,
     pub min_rating: Option<i32>,
     pub max_rating: Option<i32>,
 }

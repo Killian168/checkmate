@@ -1,0 +1,44 @@
+[package]
+name = "matchmaker"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "matchmaker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "matchmaker"
+path = "src/main.rs"
+
+[dependencies]
+# AWS SDK
+aws-config = "1.1"
+aws_lambda_events = "0.15"
+aws-sdk-apigatewaymanagement = "1.1"
+aws-sdk-dynamodb = "1.1"
+hex = "0.4"
+# Lambda runtime
+lambda_runtime = "0.10"
+# Random number generation
+rand = "0.8"
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
+serde_json = "1.0"
+# Hashing for deterministic game IDs
+sha2 = "0.10"
+# Shared models
+shared = { path = "../shared" }
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# Logging & observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+
+[profile.release]
+opt-level = "z"
+strip = true
+lto = true
+codegen-units = 1

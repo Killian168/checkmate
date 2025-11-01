@@ -20,7 +20,6 @@ provider:
         issuerUrl: !Sub https://cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}
         audience:
           - !Ref CognitoUserPoolClient
-  websocketApiRouteSelectionExpression: $request.body.action
 
 package:
   individually: true
@@ -130,6 +129,51 @@ functions:
       - websocket:
           route: $default
 
+  matchmaker:
+    handler: matchmaker
+    package:
+      artifact: target/lambda/matchmaker/matchmaker.zip
+    environment:
+      QUEUE_TABLE: !Ref QueueTable
+      GAMES_TABLE: !Ref GamesTable
+      CONNECTIONS_TABLE: !Ref ConnectionsTable
+      WEBSOCKET_API_ENDPOINT: !Sub "https://${WebsocketsApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}"
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:DeleteItem
+          - dynamodb:UpdateItem
+        Resource: !GetAtt QueueTable.Arn
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt GamesTable.Arn
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource:
+          - !GetAtt ConnectionsTable.Arn
+          - !Sub "${ConnectionsTable.Arn}/index/UserIdIndex"
+      - Effect: Allow
+        Action:
+          - execute-api:ManageConnections
+        Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*
+      - Effect: Allow
+        Action:
+          - dynamodb:GetRecords
+          - dynamodb:GetShardIterator
+          - dynamodb:DescribeStream
+          - dynamodb:ListStreams
+        Resource: !GetAtt QueueTable.StreamArn
+    events:
+      - stream:
+          type: dynamodb
+          arn: !GetAtt QueueTable.StreamArn
+          batchSize: 1
+          startingPosition: LATEST
+          maximumRetryAttempts: 2
+
 resources:
   Resources:
     CognitoUserPool:
@@ -195,6 +239,8 @@ resources:
       Properties:
         TableName: ${self:service}-${self:provider.stage}-queue-table
         BillingMode: PAY_PER_REQUEST
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         KeySchema:
           - AttributeName: queue_key
             KeyType: HASH
@@ -216,4 +262,25 @@ resources:
             KeyType: HASH
         AttributeDefinitions:
           - AttributeName: connection_id
+            AttributeType: S
+          - AttributeName: user_id
+            AttributeType: S
+        GlobalSecondaryIndexes:
+          - IndexName: UserIdIndex
+            KeySchema:
+              - AttributeName: user_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    GamesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${self:provider.stage}-games-table
+        BillingMode: PAY_PER_REQUEST
+        KeySchema:
+          - AttributeName: game_id
+            KeyType: HASH
+        AttributeDefinitions:
+          - AttributeName: game_id
             AttributeType: S
